@@ -1,0 +1,4 @@
+interface:
+  display_name: "F# Project Bootstrap"
+  short_description: "Scaffold idiomatic F# projects and conventions"
+  default_prompt: "Use $fsharp-project-bootstrap to scaffold a new F# solution with Claude/Codex guidance files."

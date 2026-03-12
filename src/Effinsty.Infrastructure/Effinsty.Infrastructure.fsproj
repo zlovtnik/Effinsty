@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Configuration.fs" />
+    <Compile Include="SqlTemplates.fs" />
+    <Compile Include="OracleConnectionFactory.fs" />
+    <Compile Include="TenantResolver.fs" />
+    <Compile Include="Security.fs" />
+    <Compile Include="Sessions.fs" />
+    <Compile Include="Repositories.fs" />
+    <Compile Include="OracleHealthCheck.fs" />
+    <Compile Include="ServiceCollection.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Effinsty.Domain\Effinsty.Domain.fsproj" />
+    <ProjectReference Include="..\Effinsty.Application\Effinsty.Application.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.8.0" />
+    <PackageReference Include="StackExchange.Redis" Version="2.8.24" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.12.1" />
+  </ItemGroup>
+</Project>

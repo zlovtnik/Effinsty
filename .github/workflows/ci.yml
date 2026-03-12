@@ -1,0 +1,45 @@
+name: Effinsty API CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Effinsty.Api.sln
+
+      - name: Build
+        run: dotnet build Effinsty.Api.sln --configuration Release --no-restore
+
+      - name: Install Fantomas
+        run: dotnet tool install fantomas-tool --tool-path ./.tools
+
+      - name: Format check
+        run: ./.tools/fantomas --check .
+
+      - name: Install FSharpLint
+        run: dotnet tool install dotnet-fsharplint --tool-path ./.tools
+
+      - name: Lint
+        run: ./.tools/dotnet-fsharplint lint src/**/*.fsproj tests/**/*.fsproj
+
+      - name: Unit and integration tests
+        run: dotnet test Effinsty.Api.sln --configuration Release --no-build --verbosity normal
+
+      - name: Vulnerability scan
+        run: dotnet list Effinsty.Api.sln package --vulnerable --include-transitive
+
+      - name: Build container
+        run: docker build -t effinsty-api:${{ github.sha }} .

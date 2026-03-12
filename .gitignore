@@ -1,0 +1,55 @@
+# Ignore build outputs
+bin/
+obj/
+
+# Visual Studio / Rider
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# MonoDevelop
+*.pidb
+
+# Backup & temporary files
+*.bak
+*.cache
+*.log
+*.swp
+*.tmp
+
+# NuGet packages
+*.nupkg
+packages/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Credentials
+.env
+
+# Docker
+docker-compose.override.yml
+
+# Certificates
+*.pfx
+
+# Rider debug
+.idea/
+
+# Test result files
+tests/**/TestResults/
+
+# JetBrains Rider caches
+.idea/
+
+# Visual Studio Code
+.vscode/
+
+# Oracle wallet
+**/wallet/**
