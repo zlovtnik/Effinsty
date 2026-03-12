@@ -51,6 +51,11 @@ type SessionRecord = {
     ExpiresAt: DateTimeOffset
 }
 
+type CorrelationId = CorrelationId of string
+
+module CorrelationId =
+    let value (CorrelationId value) = value
+
 type IAuthService =
     abstract member LoginAsync: TenantContext * string * LoginCommand * CancellationToken -> Task<Result<AuthToken, AppError>>
     abstract member RefreshAsync: TenantContext * string * RefreshCommand * CancellationToken -> Task<Result<AuthToken, AppError>>
@@ -90,8 +95,8 @@ type IOracleConnectionFactory =
     abstract member CreateOpenConnectionAsync: TenantContext * CancellationToken -> Task<IDbConnection>
 
 type IUserRepository =
-    abstract member FindByUsernameAsync: TenantContext * string * string * CancellationToken -> Task<User option>
-    abstract member FindByIdAsync: TenantContext * string * UserId * CancellationToken -> Task<User option>
+    abstract member FindByUsernameAsync: TenantContext * CorrelationId * string * CancellationToken -> Task<User option>
+    abstract member FindByIdAsync: TenantContext * CorrelationId * UserId * CancellationToken -> Task<User option>
 
 type IPasswordHasher =
     abstract member Verify: plainText: string * hashed: string -> bool

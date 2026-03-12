@@ -109,7 +109,7 @@ type OracleUserRepository(factory: IOracleConnectionFactory, logger: ILogger<Ora
                         logger
                         Events.DbQueryUsers
                         tenant
-                        correlationId
+                        (CorrelationId.value correlationId)
                         "users.findByUsername"
                         1
                         (fun () -> conn.QuerySingleOrDefaultAsync<UserRow>(CommandDefinition(sql, parameters, cancellationToken = ct)))
@@ -133,7 +133,7 @@ type OracleUserRepository(factory: IOracleConnectionFactory, logger: ILogger<Ora
                         logger
                         Events.DbQueryUsers
                         tenant
-                        correlationId
+                        (CorrelationId.value correlationId)
                         "users.findById"
                         1
                         (fun () -> conn.QuerySingleOrDefaultAsync<UserRow>(CommandDefinition(sql, parameters, cancellationToken = ct)))

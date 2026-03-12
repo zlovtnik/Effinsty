@@ -1,5 +1,6 @@
 namespace Effinsty.Infrastructure
 
+open System
 open System.Collections.Generic
 open System.Data
 open System.Threading
@@ -13,6 +14,9 @@ module DbSchemaValidator =
 
     let validateSchema (conn: IDbConnection) (schema: string) (ct: CancellationToken) =
         task {
+            if String.IsNullOrWhiteSpace(schema) then
+                invalidArg (nameof schema) "Schema name cannot be null or empty."
+
             let upper = schema.ToUpperInvariant()
             let missing = ResizeArray<string>()
 
@@ -34,7 +38,7 @@ module DbSchemaValidator =
                 let! count =
                     conn.ExecuteScalarAsync<int>(
                         CommandDefinition(
-                            "SELECT COUNT(1) FROM ALL_INDEXES WHERE INDEX_NAME=:name AND TABLE_OWNER=:owner",
+                            "SELECT COUNT(1) FROM ALL_INDEXES WHERE INDEX_NAME=:name AND OWNER=:owner",
                             {| name = indexName
                                owner = upper |},
                             cancellationToken = ct
@@ -62,7 +66,7 @@ module DbSchemaValidator =
                 let! count =
                     conn.ExecuteScalarAsync<int>(
                         CommandDefinition(
-                            "SELECT COUNT(1) FROM ALL_CONSTRAINTS WHERE CONSTRAINT_NAME=:name AND OWNER=:owner",
+                            "SELECT COUNT(1) FROM ALL_CONSTRAINTS WHERE CONSTRAINT_NAME=:name AND OWNER=:owner AND CONSTRAINT_TYPE='R'",
                             {| name = fkName
                                owner = upper |},
                             cancellationToken = ct

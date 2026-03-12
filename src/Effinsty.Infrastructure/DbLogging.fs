@@ -1,11 +1,16 @@
 namespace Effinsty.Infrastructure
 
 open System.Diagnostics
+open System.Runtime.ExceptionServices
 open System.Threading.Tasks
 open Effinsty.Domain
 open Microsoft.Extensions.Logging
 
 module DbLogging =
+    let private rethrowPreservingStack<'T> (ex: exn) : 'T =
+        ExceptionDispatchInfo.Capture(ex).Throw()
+        Unchecked.defaultof<'T>
+
     let execQuery
         (logger: ILogger)
         (eventId: EventId)
@@ -49,7 +54,7 @@ module DbLogging =
                     correlationId
                 )
 
-                return raise ex
+                return rethrowPreservingStack ex
         }
 
     let execCommand
@@ -98,5 +103,5 @@ module DbLogging =
                     correlationId
                 )
 
-                return raise ex
+                return rethrowPreservingStack ex
         }

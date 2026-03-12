@@ -206,7 +206,7 @@ type AuthService(
                 if String.IsNullOrWhiteSpace(username) || String.IsNullOrWhiteSpace(command.Password) then
                     return Error(ValidationError [ "Username and password are required." ])
                 else
-                    let! found = userRepository.FindByUsernameAsync(tenant, correlationId, username, ct)
+                    let! found = userRepository.FindByUsernameAsync(tenant, CorrelationId correlationId, username, ct)
 
                     match found with
                     | None -> return Error(Unauthorized "Invalid credentials.")
@@ -252,7 +252,7 @@ type AuthService(
                             do! sessionStore.DeleteAsync(stored.SessionId, ct)
                             return Error(Unauthorized "Session is expired.")
                         | Some _ ->
-                            let! user = userRepository.FindByIdAsync(tenant, correlationId, payload.UserId, ct)
+                            let! user = userRepository.FindByIdAsync(tenant, CorrelationId correlationId, payload.UserId, ct)
 
                             match user with
                             | None -> return Error(Unauthorized "User not found for this session.")

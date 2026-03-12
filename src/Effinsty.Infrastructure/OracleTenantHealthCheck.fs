@@ -1,7 +1,9 @@
 namespace Effinsty.Infrastructure
 
+open System
 open System.Collections.Generic
 open System.Diagnostics
+open System.Runtime.ExceptionServices
 open System.Threading
 open Dapper
 open Microsoft.Extensions.Diagnostics.HealthChecks
@@ -35,18 +37,22 @@ type OracleTenantHealthCheck(tenantOptions: IOptions<TenantOptions>, logger: ILo
                             sw.ElapsedMilliseconds
                         )
                     with ex ->
-                        sw.Stop()
-                        allHealthy <- false
-                        results[kvp.Key] <- box $"FAIL: {ex.Message}"
+                        match ex with
+                        | :? OperationCanceledException ->
+                            ExceptionDispatchInfo.Capture(ex).Throw()
+                        | _ ->
+                            sw.Stop()
+                            allHealthy <- false
+                            results[kvp.Key] <- box $"FAIL: {ex.Message}"
 
-                        logger.LogError(
-                            Events.TenantDbHealthCheckFailed,
-                            ex,
-                            "Tenant DB FAILED. Tenant={Tenant} Alias={Alias} ElapsedMs={ElapsedMs}",
-                            kvp.Key,
-                            alias,
-                            sw.ElapsedMilliseconds
-                        )
+                            logger.LogError(
+                                Events.TenantDbHealthCheckFailed,
+                                ex,
+                                "Tenant DB FAILED. Tenant={Tenant} Alias={Alias} ElapsedMs={ElapsedMs}",
+                                kvp.Key,
+                                alias,
+                                sw.ElapsedMilliseconds
+                            )
 
                 if allHealthy then
                     return HealthCheckResult.Healthy("All tenant DB sources healthy.", results)
