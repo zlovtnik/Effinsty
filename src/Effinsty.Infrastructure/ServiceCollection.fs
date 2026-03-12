@@ -46,6 +46,11 @@ module ServiceCollectionExtensions =
             this.AddScoped<IAuthService, AuthService>() |> ignore
             this.AddScoped<IContactService, ContactService>() |> ignore
 
-            this.AddHealthChecks().AddCheck<OracleConnectivityHealthCheck>("oracle") |> ignore
+            this.AddHealthChecks()
+                .AddCheck<OracleConnectivityHealthCheck>("oracle-default", tags = [| "db"; "oracle" |])
+                .AddCheck<OracleTenantHealthCheck>("oracle-tenants", tags = [| "db"; "oracle"; "tenants" |])
+            |> ignore
+
+            this.AddHostedService<DbStartupValidationService>() |> ignore
 
             this

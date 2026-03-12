@@ -3,10 +3,10 @@ namespace Effinsty.Infrastructure
 open System
 open System.Text.Json
 open System.Threading
-open System.Threading.Tasks
 open Dapper
 open Effinsty.Application
 open Effinsty.Domain
+open Microsoft.Extensions.Logging
 
 [<CLIMutable>]
 type private UserRow = {
@@ -93,18 +93,26 @@ module private Mapping =
             UpdatedAt = row.UPDATED_AT
         }
 
-type OracleUserRepository(factory: IOracleConnectionFactory) =
+type OracleUserRepository(factory: IOracleConnectionFactory, logger: ILogger<OracleUserRepository>) =
     let schema tenant = TenantSchema.value tenant.Schema
 
     interface IUserRepository with
-        member _.FindByUsernameAsync(tenant, username, ct) =
+        member _.FindByUsernameAsync(tenant, correlationId, username, ct) =
             task {
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.userByUsername (schema tenant)
                 let parameters = DynamicParameters()
                 parameters.Add("username", username)
 
-                let! row = conn.QuerySingleOrDefaultAsync<UserRow>(CommandDefinition(sql, parameters, cancellationToken = ct))
+                let! row =
+                    DbLogging.execQuery
+                        logger
+                        Events.DbQueryUsers
+                        tenant
+                        correlationId
+                        "users.findByUsername"
+                        1
+                        (fun () -> conn.QuerySingleOrDefaultAsync<UserRow>(CommandDefinition(sql, parameters, cancellationToken = ct)))
 
                 return
                     if isNull (box row) then
@@ -113,14 +121,22 @@ type OracleUserRepository(factory: IOracleConnectionFactory) =
                         Some(Mapping.toUser row)
             }
 
-        member _.FindByIdAsync(tenant, userId, ct) =
+        member _.FindByIdAsync(tenant, correlationId, userId, ct) =
             task {
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.userById (schema tenant)
                 let parameters = DynamicParameters()
                 parameters.Add("id", UserId.value userId |> string)
 
-                let! row = conn.QuerySingleOrDefaultAsync<UserRow>(CommandDefinition(sql, parameters, cancellationToken = ct))
+                let! row =
+                    DbLogging.execQuery
+                        logger
+                        Events.DbQueryUsers
+                        tenant
+                        correlationId
+                        "users.findById"
+                        1
+                        (fun () -> conn.QuerySingleOrDefaultAsync<UserRow>(CommandDefinition(sql, parameters, cancellationToken = ct)))
 
                 return
                     if isNull (box row) then
@@ -129,13 +145,13 @@ type OracleUserRepository(factory: IOracleConnectionFactory) =
                         Some(Mapping.toUser row)
             }
 
-type OracleContactRepository(factory: IOracleConnectionFactory) =
+type OracleContactRepository(factory: IOracleConnectionFactory, logger: ILogger<OracleContactRepository>) =
     let schema tenant = TenantSchema.value tenant.Schema
 
     let serializeMetadata metadata = JsonSerializer.Serialize(metadata)
 
     interface IContactRepository with
-        member _.ListAsync(tenant, userId, page, pageSize, ct) =
+        member _.ListAsync(tenant, correlationId, userId, page, pageSize, ct) =
             task {
                 if page <= 0 then
                     raise (ArgumentOutOfRangeException("page", page, "Parameter 'page' must be greater than zero."))
@@ -150,21 +166,40 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
                 parameters.Add("offset", (page - 1) * pageSize)
                 parameters.Add("pageSize", pageSize)
 
-                let! rows = conn.QueryAsync<ContactRow>(CommandDefinition(sql, parameters, cancellationToken = ct))
+                let! rows =
+                    DbLogging.execQuery
+                        logger
+                        Events.DbQueryContacts
+                        tenant
+                        correlationId
+                        "contacts.list"
+                        3
+                        (fun () -> conn.QueryAsync<ContactRow>(CommandDefinition(sql, parameters, cancellationToken = ct)))
+
                 return rows |> Seq.map Mapping.toContact |> List.ofSeq
             }
 
-        member _.CountAsync(tenant, userId, ct) =
+        member _.CountAsync(tenant, correlationId, userId, ct) =
             task {
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.contactsCount (schema tenant)
                 let parameters = DynamicParameters()
                 parameters.Add("userId", UserId.value userId |> string)
-                let! count = conn.ExecuteScalarAsync<int>(CommandDefinition(sql, parameters, cancellationToken = ct))
+
+                let! count =
+                    DbLogging.execQuery
+                        logger
+                        Events.DbQueryContacts
+                        tenant
+                        correlationId
+                        "contacts.count"
+                        1
+                        (fun () -> conn.ExecuteScalarAsync<int>(CommandDefinition(sql, parameters, cancellationToken = ct)))
+
                 return count
             }
 
-        member _.GetByIdAsync(tenant, userId, contactId, ct) =
+        member _.GetByIdAsync(tenant, correlationId, userId, contactId, ct) =
             task {
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.contactById (schema tenant)
@@ -172,7 +207,15 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
                 parameters.Add("userId", UserId.value userId |> string)
                 parameters.Add("id", ContactId.value contactId |> string)
 
-                let! row = conn.QuerySingleOrDefaultAsync<ContactRow>(CommandDefinition(sql, parameters, cancellationToken = ct))
+                let! row =
+                    DbLogging.execQuery
+                        logger
+                        Events.DbQueryContacts
+                        tenant
+                        correlationId
+                        "contacts.getById"
+                        2
+                        (fun () -> conn.QuerySingleOrDefaultAsync<ContactRow>(CommandDefinition(sql, parameters, cancellationToken = ct)))
 
                 return
                     if isNull (box row) then
@@ -181,7 +224,7 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
                         Some(Mapping.toContact row)
             }
 
-        member _.ExistsByEmailAsync(tenant, userId, email, excludeId, ct) =
+        member _.ExistsByEmailAsync(tenant, correlationId, userId, email, excludeId, ct) =
             task {
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.contactDuplicateEmail (schema tenant)
@@ -193,11 +236,20 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
                 | Some id -> parameters.Add("excludeId", ContactId.value id |> string)
                 | None -> parameters.Add("excludeId", null)
 
-                let! count = conn.ExecuteScalarAsync<int>(CommandDefinition(sql, parameters, cancellationToken = ct))
+                let! count =
+                    DbLogging.execQuery
+                        logger
+                        Events.DbQueryContacts
+                        tenant
+                        correlationId
+                        "contacts.existsByEmail"
+                        3
+                        (fun () -> conn.ExecuteScalarAsync<int>(CommandDefinition(sql, parameters, cancellationToken = ct)))
+
                 return count > 0
             }
 
-        member _.CreateAsync(tenant, contact, ct) =
+        member _.CreateAsync(tenant, correlationId, contact, ct) =
             task {
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.contactInsert (schema tenant)
@@ -214,11 +266,20 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
                 parameters.Add("createdAt", contact.CreatedAt.UtcDateTime)
                 parameters.Add("updatedAt", contact.UpdatedAt.UtcDateTime)
 
-                let! _ = conn.ExecuteAsync(CommandDefinition(sql, parameters, cancellationToken = ct))
+                let! _ =
+                    DbLogging.execCommand
+                        logger
+                        Events.DbCommandContact
+                        tenant
+                        correlationId
+                        "contacts.create"
+                        11
+                        (fun () -> conn.ExecuteAsync(CommandDefinition(sql, parameters, cancellationToken = ct)))
+
                 return contact
             }
 
-        member _.UpdateAsync(tenant, contact, ct) =
+        member _.UpdateAsync(tenant, correlationId, contact, ct) =
             task {
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.contactUpdate (schema tenant)
@@ -233,7 +294,15 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
                 parameters.Add("metadataJson", serializeMetadata contact.Metadata)
                 parameters.Add("updatedAt", contact.UpdatedAt.UtcDateTime)
 
-                let! affected = conn.ExecuteAsync(CommandDefinition(sql, parameters, cancellationToken = ct))
+                let! affected =
+                    DbLogging.execCommand
+                        logger
+                        Events.DbCommandContact
+                        tenant
+                        correlationId
+                        "contacts.update"
+                        9
+                        (fun () -> conn.ExecuteAsync(CommandDefinition(sql, parameters, cancellationToken = ct)))
 
                 if affected = 0 then
                     return raise (InvalidOperationException("Contact update failed because no rows were affected."))
@@ -241,7 +310,7 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
                     return contact
             }
 
-        member _.DeleteAsync(tenant, userId, contactId, ct) =
+        member _.DeleteAsync(tenant, correlationId, userId, contactId, ct) =
             task {
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.contactDelete (schema tenant)
@@ -249,6 +318,15 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
                 parameters.Add("userId", UserId.value userId |> string)
                 parameters.Add("id", ContactId.value contactId |> string)
 
-                let! affected = conn.ExecuteAsync(CommandDefinition(sql, parameters, cancellationToken = ct))
+                let! affected =
+                    DbLogging.execCommand
+                        logger
+                        Events.DbCommandContact
+                        tenant
+                        correlationId
+                        "contacts.delete"
+                        2
+                        (fun () -> conn.ExecuteAsync(CommandDefinition(sql, parameters, cancellationToken = ct)))
+
                 return affected > 0
             }

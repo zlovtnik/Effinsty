@@ -7,13 +7,18 @@
   <ItemGroup>
     <Compile Include="InternalsVisibleTo.fs" />
     <Compile Include="Configuration.fs" />
+    <Compile Include="Events.fs" />
     <Compile Include="SqlTemplates.fs" />
+    <Compile Include="DbLogging.fs" />
+    <Compile Include="DbSchemaValidator.fs" />
     <Compile Include="OracleConnectionFactory.fs" />
     <Compile Include="TenantResolver.fs" />
     <Compile Include="Security.fs" />
     <Compile Include="Sessions.fs" />
     <Compile Include="Repositories.fs" />
     <Compile Include="OracleHealthCheck.fs" />
+    <Compile Include="OracleTenantHealthCheck.fs" />
+    <Compile Include="DbStartupValidationService.fs" />
     <Compile Include="ServiceCollection.fs" />
   </ItemGroup>
 

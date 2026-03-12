@@ -52,25 +52,36 @@ type SessionRecord = {
 }
 
 type IAuthService =
-    abstract member LoginAsync: TenantContext * LoginCommand * CancellationToken -> Task<Result<AuthToken, AppError>>
-    abstract member RefreshAsync: TenantContext * RefreshCommand * CancellationToken -> Task<Result<AuthToken, AppError>>
-    abstract member LogoutAsync: TenantContext * RefreshCommand * CancellationToken -> Task<Result<unit, AppError>>
+    abstract member LoginAsync: TenantContext * string * LoginCommand * CancellationToken -> Task<Result<AuthToken, AppError>>
+    abstract member RefreshAsync: TenantContext * string * RefreshCommand * CancellationToken -> Task<Result<AuthToken, AppError>>
+    abstract member LogoutAsync: TenantContext * string * RefreshCommand * CancellationToken -> Task<Result<unit, AppError>>
 
 type IContactService =
-    abstract member ListAsync: TenantContext * UserId * int * int * CancellationToken -> Task<Result<PagedResult<Contact>, AppError>>
-    abstract member GetAsync: TenantContext * UserId * ContactId * CancellationToken -> Task<Result<Contact, AppError>>
-    abstract member CreateAsync: TenantContext * ContactCreateCommand * CancellationToken -> Task<Result<Contact, AppError>>
-    abstract member UpdateAsync: TenantContext * ContactUpdateCommand * CancellationToken -> Task<Result<Contact, AppError>>
-    abstract member DeleteAsync: TenantContext * UserId * ContactId * CancellationToken -> Task<Result<unit, AppError>>
+    abstract member ListAsync:
+        TenantContext * string * UserId * int * int * CancellationToken -> Task<Result<PagedResult<Contact>, AppError>>
+
+    abstract member GetAsync:
+        TenantContext * string * UserId * ContactId * CancellationToken -> Task<Result<Contact, AppError>>
+
+    abstract member CreateAsync:
+        TenantContext * string * ContactCreateCommand * CancellationToken -> Task<Result<Contact, AppError>>
+
+    abstract member UpdateAsync:
+        TenantContext * string * ContactUpdateCommand * CancellationToken -> Task<Result<Contact, AppError>>
+
+    abstract member DeleteAsync:
+        TenantContext * string * UserId * ContactId * CancellationToken -> Task<Result<unit, AppError>>
 
 type IContactRepository =
-    abstract member ListAsync: TenantContext * UserId * int * int * CancellationToken -> Task<Contact list>
-    abstract member CountAsync: TenantContext * UserId * CancellationToken -> Task<int>
-    abstract member GetByIdAsync: TenantContext * UserId * ContactId * CancellationToken -> Task<Contact option>
-    abstract member ExistsByEmailAsync: TenantContext * UserId * string * ContactId option * CancellationToken -> Task<bool>
-    abstract member CreateAsync: TenantContext * Contact * CancellationToken -> Task<Contact>
-    abstract member UpdateAsync: TenantContext * Contact * CancellationToken -> Task<Contact>
-    abstract member DeleteAsync: TenantContext * UserId * ContactId * CancellationToken -> Task<bool>
+    abstract member ListAsync: TenantContext * string * UserId * int * int * CancellationToken -> Task<Contact list>
+    abstract member CountAsync: TenantContext * string * UserId * CancellationToken -> Task<int>
+    abstract member GetByIdAsync: TenantContext * string * UserId * ContactId * CancellationToken -> Task<Contact option>
+    abstract member ExistsByEmailAsync:
+        TenantContext * string * UserId * string * ContactId option * CancellationToken -> Task<bool>
+
+    abstract member CreateAsync: TenantContext * string * Contact * CancellationToken -> Task<Contact>
+    abstract member UpdateAsync: TenantContext * string * Contact * CancellationToken -> Task<Contact>
+    abstract member DeleteAsync: TenantContext * string * UserId * ContactId * CancellationToken -> Task<bool>
 
 type ITenantResolver =
     abstract member ResolveAsync: string option * CancellationToken -> Task<Result<TenantContext, AppError>>
@@ -79,8 +90,8 @@ type IOracleConnectionFactory =
     abstract member CreateOpenConnectionAsync: TenantContext * CancellationToken -> Task<IDbConnection>
 
 type IUserRepository =
-    abstract member FindByUsernameAsync: TenantContext * string * CancellationToken -> Task<User option>
-    abstract member FindByIdAsync: TenantContext * UserId * CancellationToken -> Task<User option>
+    abstract member FindByUsernameAsync: TenantContext * string * string * CancellationToken -> Task<User option>
+    abstract member FindByIdAsync: TenantContext * string * UserId * CancellationToken -> Task<User option>
 
 type IPasswordHasher =
     abstract member Verify: plainText: string * hashed: string -> bool

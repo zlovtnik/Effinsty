@@ -9,18 +9,18 @@ open Xunit
 
 type private FakeContactRepository() =
     interface IContactRepository with
-        member _.ListAsync(_, _, _, _, _) = Task.FromResult([])
-        member _.CountAsync(_, _, _) = Task.FromResult(0)
-        member _.GetByIdAsync(_, _, _, _) = Task.FromResult(None)
-        member _.ExistsByEmailAsync(_, _, _, _, _) = Task.FromResult(true)
-        member _.CreateAsync(_, contact, _) = Task.FromResult(contact)
-        member _.UpdateAsync(_, contact, _) = Task.FromResult(contact)
-        member _.DeleteAsync(_, _, _, _) = Task.FromResult(false)
+        member _.ListAsync(_, _, _, _, _, _) = Task.FromResult([])
+        member _.CountAsync(_, _, _, _) = Task.FromResult(0)
+        member _.GetByIdAsync(_, _, _, _, _) = Task.FromResult(None)
+        member _.ExistsByEmailAsync(_, _, _, _, _, _) = Task.FromResult(true)
+        member _.CreateAsync(_, _, contact, _) = Task.FromResult(contact)
+        member _.UpdateAsync(_, _, contact, _) = Task.FromResult(contact)
+        member _.DeleteAsync(_, _, _, _, _) = Task.FromResult(false)
 
 type private FakeUserRepository() =
     interface IUserRepository with
-        member _.FindByUsernameAsync(_, _, _) = Task.FromResult(None)
-        member _.FindByIdAsync(_, _, _) = Task.FromResult(None)
+        member _.FindByUsernameAsync(_, _, _, _) = Task.FromResult(None)
+        member _.FindByIdAsync(_, _, _, _) = Task.FromResult(None)
 
 type private FakePasswordHasher() =
     interface IPasswordHasher with
@@ -39,8 +39,8 @@ type private FakeSessionStore() =
 
 type private InactiveRefreshUserRepository(user: User) =
     interface IUserRepository with
-        member _.FindByUsernameAsync(_, _, _) = Task.FromResult(None)
-        member _.FindByIdAsync(_, _, _) = Task.FromResult(Some user)
+        member _.FindByUsernameAsync(_, _, _, _) = Task.FromResult(None)
+        member _.FindByIdAsync(_, _, _, _) = Task.FromResult(Some user)
 
 type private CountingTokenProvider(payload: RefreshTokenPayload) =
     let mutable issueTokensCalls = 0
@@ -90,7 +90,7 @@ let ``contact create returns conflict when duplicate email exists`` () =
                 Metadata = Map.empty
             }
 
-        let! result = service.CreateAsync(tenant, command, CancellationToken.None)
+        let! result = service.CreateAsync(tenant, "test-correlation-id", command, CancellationToken.None)
 
         match result with
         | Ok _ -> Assert.Fail("Expected conflict")
@@ -106,7 +106,7 @@ let ``auth login returns unauthorized when user is missing`` () =
             :> IAuthService
 
         let command = { Username = "nobody"; Password = "password" }
-        let! result = service.LoginAsync(tenant, command, CancellationToken.None)
+        let! result = service.LoginAsync(tenant, "test-correlation-id", command, CancellationToken.None)
 
         match result with
         | Ok _ -> Assert.Fail("Expected unauthorized")
@@ -162,7 +162,7 @@ let ``auth refresh rejects inactive user and revokes session`` () =
             )
             :> IAuthService
 
-        let! result = service.RefreshAsync(tenant, { RefreshToken = refreshToken }, CancellationToken.None)
+        let! result = service.RefreshAsync(tenant, "test-correlation-id", { RefreshToken = refreshToken }, CancellationToken.None)
 
         match result with
         | Ok _ -> Assert.Fail("Expected forbidden error for inactive user refresh.")
@@ -175,8 +175,8 @@ let ``auth refresh rejects inactive user and revokes session`` () =
 
 type private ActiveRefreshUserRepository(user: User) =
     interface IUserRepository with
-        member _.FindByUsernameAsync(_, _, _) = Task.FromResult(None)
-        member _.FindByIdAsync(_, _, _) = Task.FromResult(Some user)
+        member _.FindByUsernameAsync(_, _, _, _) = Task.FromResult(None)
+        member _.FindByIdAsync(_, _, _, _) = Task.FromResult(Some user)
 
 type private RotationTokenProvider(
     oldRefreshToken: string,
@@ -301,7 +301,8 @@ let ``auth refresh retries old session deletion and succeeds`` () =
             )
             :> IAuthService
 
-        let! result = service.RefreshAsync(tenant, { RefreshToken = incomingRefreshToken }, CancellationToken.None)
+        let! result =
+            service.RefreshAsync(tenant, "test-correlation-id", { RefreshToken = incomingRefreshToken }, CancellationToken.None)
 
         match result with
         | Ok refreshed ->
@@ -377,7 +378,8 @@ let ``auth refresh revokes new session when old session deletion keeps failing``
             )
             :> IAuthService
 
-        let! result = service.RefreshAsync(tenant, { RefreshToken = incomingRefreshToken }, CancellationToken.None)
+        let! result =
+            service.RefreshAsync(tenant, "test-correlation-id", { RefreshToken = incomingRefreshToken }, CancellationToken.None)
 
         match result with
         | Ok _ -> Assert.Fail("Expected InfrastructureError when old session deletion retries are exhausted.")

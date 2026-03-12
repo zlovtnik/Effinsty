@@ -45,13 +45,13 @@ module private Helpers =
 
 type ContactService(repository: IContactRepository) =
     interface IContactService with
-        member _.ListAsync(tenant, userId, page, pageSize, ct) =
+        member _.ListAsync(tenant, correlationId, userId, page, pageSize, ct) =
             task {
                 let safePage = if page <= 0 then 1 else page
                 let safePageSize = if pageSize <= 0 then 20 elif pageSize > 100 then 100 else pageSize
 
-                let! items = repository.ListAsync(tenant, userId, safePage, safePageSize, ct)
-                let! total = repository.CountAsync(tenant, userId, ct)
+                let! items = repository.ListAsync(tenant, correlationId, userId, safePage, safePageSize, ct)
+                let! total = repository.CountAsync(tenant, correlationId, userId, ct)
 
                 return
                     Ok {
@@ -62,9 +62,9 @@ type ContactService(repository: IContactRepository) =
                     }
             }
 
-        member _.GetAsync(tenant, userId, contactId, ct) =
+        member _.GetAsync(tenant, correlationId, userId, contactId, ct) =
             task {
-                let! found = repository.GetByIdAsync(tenant, userId, contactId, ct)
+                let! found = repository.GetByIdAsync(tenant, correlationId, userId, contactId, ct)
 
                 return
                     match found with
@@ -73,14 +73,14 @@ type ContactService(repository: IContactRepository) =
                     | None -> Error(NotFound "Contact was not found.")
             }
 
-        member _.CreateAsync(tenant, command, ct) =
+        member _.CreateAsync(tenant, correlationId, command, ct) =
             task {
                 match Validation.validateContactDraft command.FirstName command.LastName command.Email command.Phone command.Address command.Metadata with
                 | Error err -> return Error err
                 | Ok draft ->
                     match draft.Email with
                     | Some email ->
-                        let! exists = repository.ExistsByEmailAsync(tenant, command.UserId, email, None, ct)
+                        let! exists = repository.ExistsByEmailAsync(tenant, correlationId, command.UserId, email, None, ct)
 
                         if exists then
                             return Error(Conflict "A contact with this email already exists.")
@@ -101,7 +101,7 @@ type ContactService(repository: IContactRepository) =
                                 UpdatedAt = now
                             }
 
-                            let! created = repository.CreateAsync(tenant, newContact, ct)
+                            let! created = repository.CreateAsync(tenant, correlationId, newContact, ct)
                             return Ok created
                     | None ->
                         let now = DateTimeOffset.UtcNow
@@ -120,13 +120,13 @@ type ContactService(repository: IContactRepository) =
                             UpdatedAt = now
                         }
 
-                        let! created = repository.CreateAsync(tenant, newContact, ct)
+                        let! created = repository.CreateAsync(tenant, correlationId, newContact, ct)
                         return Ok created
             }
 
-        member _.UpdateAsync(tenant, command, ct) =
+        member _.UpdateAsync(tenant, correlationId, command, ct) =
             task {
-                let! existing = repository.GetByIdAsync(tenant, command.UserId, command.ContactId, ct)
+                let! existing = repository.GetByIdAsync(tenant, correlationId, command.UserId, command.ContactId, ct)
 
                 match existing with
                 | None -> return Error(NotFound "Contact was not found.")
@@ -143,7 +143,8 @@ type ContactService(repository: IContactRepository) =
                     | Ok draft ->
                         match draft.Email with
                         | Some normalizedEmail ->
-                            let! duplicate = repository.ExistsByEmailAsync(tenant, command.UserId, normalizedEmail, Some command.ContactId, ct)
+                            let! duplicate =
+                                repository.ExistsByEmailAsync(tenant, correlationId, command.UserId, normalizedEmail, Some command.ContactId, ct)
 
                             if duplicate then
                                 return Error(Conflict "A contact with this email already exists.")
@@ -159,7 +160,7 @@ type ContactService(repository: IContactRepository) =
                                         UpdatedAt = DateTimeOffset.UtcNow
                                 }
 
-                                let! saved = repository.UpdateAsync(tenant, updated, ct)
+                                let! saved = repository.UpdateAsync(tenant, correlationId, updated, ct)
                                 return Ok saved
                         | None ->
                             let updated = {
@@ -173,13 +174,13 @@ type ContactService(repository: IContactRepository) =
                                     UpdatedAt = DateTimeOffset.UtcNow
                             }
 
-                            let! saved = repository.UpdateAsync(tenant, updated, ct)
+                            let! saved = repository.UpdateAsync(tenant, correlationId, updated, ct)
                             return Ok saved
             }
 
-        member _.DeleteAsync(tenant, userId, contactId, ct) =
+        member _.DeleteAsync(tenant, correlationId, userId, contactId, ct) =
             task {
-                let! deleted = repository.DeleteAsync(tenant, userId, contactId, ct)
+                let! deleted = repository.DeleteAsync(tenant, correlationId, userId, contactId, ct)
 
                 if deleted then
                     return Ok()
@@ -194,7 +195,7 @@ type AuthService(
     sessionStore: ISessionStore
 ) =
     interface IAuthService with
-        member _.LoginAsync(tenant, command, ct) =
+        member _.LoginAsync(tenant, correlationId, command, ct) =
             task {
                 let username =
                     if String.IsNullOrWhiteSpace(command.Username) then
@@ -205,7 +206,7 @@ type AuthService(
                 if String.IsNullOrWhiteSpace(username) || String.IsNullOrWhiteSpace(command.Password) then
                     return Error(ValidationError [ "Username and password are required." ])
                 else
-                    let! found = userRepository.FindByUsernameAsync(tenant, username, ct)
+                    let! found = userRepository.FindByUsernameAsync(tenant, correlationId, username, ct)
 
                     match found with
                     | None -> return Error(Unauthorized "Invalid credentials.")
@@ -231,7 +232,7 @@ type AuthService(
                                 return Ok tokens
             }
 
-        member _.RefreshAsync(tenant, command, ct) =
+        member _.RefreshAsync(tenant, correlationId, command, ct) =
             task {
                 if String.IsNullOrWhiteSpace(command.RefreshToken) then
                     return Error(ValidationError [ "RefreshToken is required." ])
@@ -251,7 +252,7 @@ type AuthService(
                             do! sessionStore.DeleteAsync(stored.SessionId, ct)
                             return Error(Unauthorized "Session is expired.")
                         | Some _ ->
-                            let! user = userRepository.FindByIdAsync(tenant, payload.UserId, ct)
+                            let! user = userRepository.FindByIdAsync(tenant, correlationId, payload.UserId, ct)
 
                             match user with
                             | None -> return Error(Unauthorized "User not found for this session.")
@@ -302,7 +303,7 @@ type AuthService(
                                                     )
             }
 
-        member _.LogoutAsync(tenant, command, ct) =
+        member _.LogoutAsync(tenant, _correlationId, command, ct) =
             task {
                 match tokenProvider.ValidateRefreshToken(command.RefreshToken) with
                 | Error _ -> return Ok()

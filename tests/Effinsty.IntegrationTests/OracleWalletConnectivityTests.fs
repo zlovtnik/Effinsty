@@ -4,6 +4,7 @@ open System
 open System.Threading
 open Effinsty.Infrastructure
 open Microsoft.Extensions.Diagnostics.HealthChecks
+open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
 open Xunit
 
@@ -27,8 +28,31 @@ let ``oracle wallet connectivity check runs when env vars are provided`` () =
                     }
                 )
 
-            let check = OracleConnectivityHealthCheck(options) :> IHealthCheck
+            use loggerFactory = LoggerFactory.Create(fun _ -> ())
+            let logger = loggerFactory.CreateLogger<OracleConnectivityHealthCheck>()
+            let check = OracleConnectivityHealthCheck(options, logger) :> IHealthCheck
             let context = HealthCheckContext()
             let! result = check.CheckHealthAsync(context, CancellationToken.None)
             Assert.Equal(HealthStatus.Healthy, result.Status)
+    }
+
+[<Fact>]
+let ``oracle health check is unhealthy when datasource is missing`` () =
+    task {
+        let options =
+            Options.Create(
+                {
+                    WalletLocation = String.Empty
+                    TnsAdmin = String.Empty
+                    DataSource = String.Empty
+                    ConnectionTimeoutSeconds = 10
+                }
+            )
+
+        use loggerFactory = LoggerFactory.Create(fun _ -> ())
+        let logger = loggerFactory.CreateLogger<OracleConnectivityHealthCheck>()
+        let check = OracleConnectivityHealthCheck(options, logger) :> IHealthCheck
+        let context = HealthCheckContext()
+        let! result = check.CheckHealthAsync(context, CancellationToken.None)
+        Assert.Equal(HealthStatus.Unhealthy, result.Status)
     }

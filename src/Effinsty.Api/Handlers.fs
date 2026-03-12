@@ -53,6 +53,9 @@ module private HandlerHelpers =
         | Ok value -> onSuccess value
         | Error err -> fun next ctx -> errorToResponse ctx err next ctx
 
+    let correlationIdOrEmpty (ctx: HttpContext) =
+        tryGetCorrelationId ctx |> Option.defaultValue String.Empty
+
 module AuthHandlers =
     let login: HttpHandler =
         fun next ctx ->
@@ -77,12 +80,14 @@ module AuthHandlers =
                         let error = ValidationError [ "Tenant context is missing." ]
                         return! HandlerHelpers.errorToResponse ctx error next ctx
                     | Some tenant ->
+                        let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+
                         let command = {
                             Username = request.Username
                             Password = request.Password
                         }
 
-                        let! result = service.LoginAsync(tenant, command, ctx.RequestAborted)
+                        let! result = service.LoginAsync(tenant, correlationId, command, ctx.RequestAborted)
 
                         return!
                             HandlerHelpers.fromResult result (Mapping.toLoginResponse >> json)
@@ -101,8 +106,9 @@ module AuthHandlers =
                     let error = ValidationError [ "Tenant context is missing." ]
                     return! HandlerHelpers.errorToResponse ctx error next ctx
                 | Some tenant ->
+                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
                     let command = { RefreshToken = request.RefreshToken }
-                    let! result = service.RefreshAsync(tenant, command, ctx.RequestAborted)
+                    let! result = service.RefreshAsync(tenant, correlationId, command, ctx.RequestAborted)
 
                     return!
                         HandlerHelpers.fromResult result (Mapping.toLoginResponse >> json)
@@ -121,8 +127,9 @@ module AuthHandlers =
                     let error = ValidationError [ "Tenant context is missing." ]
                     return! HandlerHelpers.errorToResponse ctx error next ctx
                 | Some tenant ->
+                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
                     let command = { RefreshToken = request.RefreshToken }
-                    let! result = service.LogoutAsync(tenant, command, ctx.RequestAborted)
+                    let! result = service.LogoutAsync(tenant, correlationId, command, ctx.RequestAborted)
 
                     return!
                         HandlerHelpers.fromResult result (fun _ -> json {| success = true |})
@@ -141,6 +148,8 @@ module ContactHandlers =
                 match HandlerHelpers.withTenantAndUser ctx with
                 | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
                 | Ok(tenant, userId) ->
+                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+
                     let parsePositiveInt (value: string option) =
                         value
                         |> Option.bind (fun raw ->
@@ -159,7 +168,7 @@ module ContactHandlers =
                         |> Option.map (fun value -> if value > MaxPageSize then MaxPageSize else value)
                         |> Option.defaultValue 20
 
-                    let! result = service.ListAsync(tenant, userId, page, pageSize, ctx.RequestAborted)
+                    let! result = service.ListAsync(tenant, correlationId, userId, page, pageSize, ctx.RequestAborted)
 
                     return!
                         HandlerHelpers.fromResult result (Mapping.toPagedResponse >> json)
@@ -175,7 +184,8 @@ module ContactHandlers =
                 match HandlerHelpers.withTenantAndUser ctx with
                 | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
                 | Ok(tenant, userId) ->
-                    let! result = service.GetAsync(tenant, userId, ContactId contactId, ctx.RequestAborted)
+                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+                    let! result = service.GetAsync(tenant, correlationId, userId, ContactId contactId, ctx.RequestAborted)
 
                     return!
                         HandlerHelpers.fromResult result (Mapping.toContactResponse >> json)
@@ -192,6 +202,8 @@ module ContactHandlers =
                 match HandlerHelpers.withTenantAndUser ctx with
                 | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
                 | Ok(tenant, userId) ->
+                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+
                     let command = {
                         UserId = userId
                         FirstName = request.FirstName
@@ -202,7 +214,7 @@ module ContactHandlers =
                         Metadata = HandlerHelpers.dictionaryToMap request.Metadata
                     }
 
-                    let! result = service.CreateAsync(tenant, command, ctx.RequestAborted)
+                    let! result = service.CreateAsync(tenant, correlationId, command, ctx.RequestAborted)
 
                     return!
                         HandlerHelpers.fromResult result (Mapping.toContactResponse >> json)
@@ -219,6 +231,8 @@ module ContactHandlers =
                 match HandlerHelpers.withTenantAndUser ctx with
                 | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
                 | Ok(tenant, userId) ->
+                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+
                     let command = {
                         ContactId = ContactId contactId
                         UserId = userId
@@ -234,7 +248,7 @@ module ContactHandlers =
                                 Some(HandlerHelpers.dictionaryToMap request.Metadata)
                     }
 
-                    let! result = service.UpdateAsync(tenant, command, ctx.RequestAborted)
+                    let! result = service.UpdateAsync(tenant, correlationId, command, ctx.RequestAborted)
 
                     return!
                         HandlerHelpers.fromResult result (Mapping.toContactResponse >> json)
@@ -250,7 +264,8 @@ module ContactHandlers =
                 match HandlerHelpers.withTenantAndUser ctx with
                 | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
                 | Ok(tenant, userId) ->
-                    let! result = service.DeleteAsync(tenant, userId, ContactId contactId, ctx.RequestAborted)
+                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+                    let! result = service.DeleteAsync(tenant, correlationId, userId, ContactId contactId, ctx.RequestAborted)
 
                     return!
                         HandlerHelpers.fromResult result (fun _ -> json {| success = true |})

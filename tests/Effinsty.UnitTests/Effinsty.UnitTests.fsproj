@@ -8,6 +8,7 @@
     <Compile Include="DomainValidationTests.fs" />
     <Compile Include="ServicePipelineTests.fs" />
     <Compile Include="ErrorHttpTests.fs" />
+    <Compile Include="InfrastructureLoggingAndStartupTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Effinsty.Domain\Effinsty.Domain.fsproj" />
     <ProjectReference Include="..\..\src\Effinsty.Application\Effinsty.Application.fsproj" />
+    <ProjectReference Include="..\..\src\Effinsty.Infrastructure\Effinsty.Infrastructure.fsproj" />
     <ProjectReference Include="..\..\src\Effinsty.Api\Effinsty.Api.fsproj" />
   </ItemGroup>
 </Project>

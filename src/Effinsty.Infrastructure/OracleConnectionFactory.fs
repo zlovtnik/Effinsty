@@ -2,15 +2,16 @@ namespace Effinsty.Infrastructure
 
 open System
 open System.Data
+open System.Diagnostics
 open System.Runtime.ExceptionServices
 open System.Threading
-open System.Threading.Tasks
 open Effinsty.Application
 open Effinsty.Domain
+open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
 open Oracle.ManagedDataAccess.Client
 
-type OracleConnectionFactory(options: IOptions<OracleOptions>) =
+type OracleConnectionFactory(options: IOptions<OracleOptions>, logger: ILogger<OracleConnectionFactory>) =
     let config = options.Value
 
     interface IOracleConnectionFactory with
@@ -24,13 +25,37 @@ type OracleConnectionFactory(options: IOptions<OracleOptions>) =
                 let connectionString =
                     $"User Id=/;Data Source={dataSource};Connection Timeout={timeout}"
 
+                let sw = Stopwatch.StartNew()
                 let conn = new OracleConnection(connectionString)
 
                 try
                     do! conn.OpenAsync(ct)
+                    sw.Stop()
+
+                    logger.LogDebug(
+                        Events.DbConnectionOpened,
+                        "Oracle connection opened. DataSource={DataSource} Tenant={Tenant} Schema={Schema} ElapsedMs={ElapsedMs}",
+                        dataSource,
+                        TenantId.value tenant.TenantId,
+                        TenantSchema.value tenant.Schema,
+                        sw.ElapsedMilliseconds
+                    )
+
                     return conn :> IDbConnection
                 with ex ->
+                    sw.Stop()
                     conn.Dispose()
+
+                    logger.LogError(
+                        Events.DbConnectionFailed,
+                        ex,
+                        "Oracle connection FAILED. DataSource={DataSource} Tenant={Tenant} Schema={Schema} ElapsedMs={ElapsedMs}",
+                        dataSource,
+                        TenantId.value tenant.TenantId,
+                        TenantSchema.value tenant.Schema,
+                        sw.ElapsedMilliseconds
+                    )
+
                     ExceptionDispatchInfo.Capture(ex).Throw()
                     return Unchecked.defaultof<IDbConnection>
             }

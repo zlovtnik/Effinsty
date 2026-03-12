@@ -2,6 +2,7 @@ namespace Effinsty.Api
 
 open System
 open System.Text
+open System.Text.Json
 open Effinsty.Api.Context
 open Effinsty.Application
 open Effinsty.Domain
@@ -76,7 +77,14 @@ module Program =
                 return! next.Invoke(ctx)
             with ex ->
                 let logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Effinsty.Api.ErrorHandlingMiddleware")
-                logger.LogError(ex, "Unhandled exception while processing request {Method} {Path}", ctx.Request.Method, ctx.Request.Path.Value)
+
+                logger.LogError(
+                    Events.UnhandledError,
+                    ex,
+                    "Unhandled exception while processing request {Method} {Path}",
+                    ctx.Request.Method,
+                    ctx.Request.Path.Value
+                )
 
                 let correlationId = tryGetCorrelationId ctx |> Option.defaultValue String.Empty
 
@@ -121,6 +129,19 @@ module Program =
     [<EntryPoint>]
     let main args =
         let builder = WebApplication.CreateBuilder(args)
+
+        if builder.Environment.IsProduction() then
+            builder.Logging.ClearProviders() |> ignore
+
+            builder.Logging
+                .AddJsonConsole(fun options ->
+                    options.JsonWriterOptions <- JsonWriterOptions(Indented = false)
+                    options.IncludeScopes <- true
+                    options.TimestampFormat <- "O")
+            |> ignore
+        else
+            builder.Logging.ClearProviders() |> ignore
+            builder.Logging.AddConsole() |> ignore
 
         let environmentSigningKey = Environment.GetEnvironmentVariable("JWT__SIGNINGKEY")
 
@@ -169,14 +190,18 @@ module Program =
 
         let app = builder.Build()
 
-        app.UseMiddleware(fun next -> RequestDelegate(fun ctx -> errorHandlingMiddleware next ctx)) |> ignore
-        app.UseMiddleware(fun next -> RequestDelegate(fun ctx -> setCorrelationIdMiddleware next ctx)) |> ignore
-        app.UseMiddleware(fun next -> RequestDelegate(fun ctx -> tenantResolutionMiddleware next ctx)) |> ignore
+        app.Use(fun next -> RequestDelegate(fun ctx -> errorHandlingMiddleware next ctx)) |> ignore
+        app.Use(fun next -> RequestDelegate(fun ctx -> setCorrelationIdMiddleware next ctx)) |> ignore
+        app.Use(fun next -> RequestDelegate(fun ctx -> tenantResolutionMiddleware next ctx)) |> ignore
 
         app.UseAuthentication() |> ignore
         app.UseAuthorization() |> ignore
 
-        app.MapHealthChecks("/api/health/oracle", HealthCheckOptions()) |> ignore
+        app.MapHealthChecks(
+            "/api/health/oracle",
+            HealthCheckOptions(Predicate = fun registration -> registration.Tags.Contains("oracle"))
+        )
+        |> ignore
 
         app.UseGiraffe(webApp)
 
