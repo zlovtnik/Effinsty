@@ -2,6 +2,7 @@ namespace Effinsty.Infrastructure
 
 open System
 open System.Data
+open System.Runtime.ExceptionServices
 open System.Threading
 open System.Threading.Tasks
 open Effinsty.Application
@@ -11,13 +12,6 @@ open Oracle.ManagedDataAccess.Client
 
 type OracleConnectionFactory(options: IOptions<OracleOptions>) =
     let config = options.Value
-
-    do
-        if not (String.IsNullOrWhiteSpace(config.WalletLocation)) then
-            OracleConfiguration.WalletLocation <- config.WalletLocation
-
-        if not (String.IsNullOrWhiteSpace(config.TnsAdmin)) then
-            OracleConfiguration.TnsAdmin <- config.TnsAdmin
 
     interface IOracleConnectionFactory with
         member _.CreateOpenConnectionAsync(tenant, ct) =
@@ -30,7 +24,13 @@ type OracleConnectionFactory(options: IOptions<OracleOptions>) =
                 let connectionString =
                     $"User Id=/;Data Source={dataSource};Connection Timeout={timeout}"
 
-                use conn = new OracleConnection(connectionString)
-                do! conn.OpenAsync(ct)
-                return conn :> IDbConnection
+                let conn = new OracleConnection(connectionString)
+
+                try
+                    do! conn.OpenAsync(ct)
+                    return conn :> IDbConnection
+                with ex ->
+                    conn.Dispose()
+                    ExceptionDispatchInfo.Capture(ex).Throw()
+                    return Unchecked.defaultof<IDbConnection>
             }

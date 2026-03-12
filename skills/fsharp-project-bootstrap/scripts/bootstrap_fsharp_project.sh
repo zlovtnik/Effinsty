@@ -31,8 +31,14 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     --template)
-      TEMPLATE="${2:-}"
-      shift 2
+      if [[ -n "${2:-}" && "${2:-}" != -* ]]; then
+        TEMPLATE="$2"
+        shift 2
+      else
+        echo "Error: --template requires a value (console|webapi|classlib)." >&2
+        usage
+        exit 1
+      fi
       ;;
     --no-tests)
       CREATE_TESTS=false

@@ -81,6 +81,12 @@ module Mapping =
         }
 
     let toContactResponse (contact: Contact) =
+        let safeMetadata =
+            if isNull (box contact.Metadata) then
+                Map.empty
+            else
+                contact.Metadata
+
         {
             Id = ContactId.value contact.Id
             FirstName = contact.FirstName
@@ -88,12 +94,12 @@ module Mapping =
             Email = contact.Email
             Phone = contact.Phone
             Address = contact.Address
-            Metadata = Dictionary<string, string>(contact.Metadata)
+            Metadata = Dictionary<string, string>(safeMetadata |> Map.toSeq |> dict)
             CreatedAt = contact.CreatedAt
             UpdatedAt = contact.UpdatedAt
         }
 
-    let toPagedResponse (value: PagedResult<Contact>) =
+    let toPagedResponse (value: PagedResult<Contact>) : PagedResponse<ContactResponse> =
         {
             Items = value.Items |> List.map toContactResponse
             Page = value.Page

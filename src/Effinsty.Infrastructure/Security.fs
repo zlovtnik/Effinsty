@@ -69,40 +69,45 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
                 }
 
         member _.ValidateRefreshToken(refreshToken) =
-            try
-                let key = SymmetricSecurityKey(Encoding.UTF8.GetBytes(config.SigningKey))
-                let parameters = TokenValidationParameters()
-                parameters.ValidateIssuer <- true
-                parameters.ValidIssuer <- config.Issuer
-                parameters.ValidateAudience <- true
-                parameters.ValidAudience <- config.Audience
-                parameters.ValidateIssuerSigningKey <- true
-                parameters.IssuerSigningKey <- key
-                parameters.ValidateLifetime <- true
-                parameters.ClockSkew <- TimeSpan.FromMinutes(1.0)
+            if String.IsNullOrWhiteSpace(config.SigningKey) then
+                Error(InfrastructureError "JWT signing key is not configured.")
+            else
+                try
+                    let key = SymmetricSecurityKey(Encoding.UTF8.GetBytes(config.SigningKey))
+                    let parameters = TokenValidationParameters()
+                    parameters.ValidateIssuer <- true
+                    parameters.ValidIssuer <- config.Issuer
+                    parameters.ValidateAudience <- true
+                    parameters.ValidAudience <- config.Audience
+                    parameters.ValidateIssuerSigningKey <- true
+                    parameters.IssuerSigningKey <- key
+                    parameters.ValidateLifetime <- true
+                    parameters.ClockSkew <- TimeSpan.FromMinutes(1.0)
 
-                let principal, _ = tokenHandler.ValidateToken(refreshToken, parameters)
+                    let principal, _ = tokenHandler.ValidateToken(refreshToken, parameters)
 
-                let typ = principal.FindFirst("typ")
-                let sid = principal.FindFirst("sid")
-                let tenant = principal.FindFirst("tenant")
-                let sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)
+                    let typ = principal.FindFirst("typ")
+                    let sid = principal.FindFirst("sid")
+                    let tenant = principal.FindFirst("tenant")
+                    let sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)
 
-                if isNull typ || typ.Value <> "refresh" then
-                    Error(Unauthorized "Token is not a refresh token.")
-                elif isNull sid || String.IsNullOrWhiteSpace(sid.Value) then
-                    Error(Unauthorized "Refresh token is missing session id.")
-                elif isNull tenant || String.IsNullOrWhiteSpace(tenant.Value) then
-                    Error(Unauthorized "Refresh token is missing tenant id.")
-                elif isNull sub || String.IsNullOrWhiteSpace(sub.Value) then
-                    Error(Unauthorized "Refresh token is missing user id.")
-                else
-                    let parsedUserId = Guid.Parse(sub.Value)
-
-                    Ok {
-                        UserId = UserId parsedUserId
-                        TenantId = TenantId tenant.Value
-                        SessionId = sid.Value
-                    }
-            with _ ->
-                Error(Unauthorized "Refresh token is invalid.")
+                    if isNull typ || typ.Value <> "refresh" then
+                        Error(Unauthorized "Token is not a refresh token.")
+                    elif isNull sid || String.IsNullOrWhiteSpace(sid.Value) then
+                        Error(Unauthorized "Refresh token is missing session id.")
+                    elif isNull tenant || String.IsNullOrWhiteSpace(tenant.Value) then
+                        Error(Unauthorized "Refresh token is missing tenant id.")
+                    elif isNull sub || String.IsNullOrWhiteSpace(sub.Value) then
+                        Error(Unauthorized "Refresh token is missing user id.")
+                    else
+                        match Guid.TryParse(sub.Value) with
+                        | true, parsedUserId ->
+                            Ok {
+                                UserId = UserId parsedUserId
+                                TenantId = TenantId tenant.Value
+                                SessionId = sid.Value
+                            }
+                        | _ ->
+                            Error(Unauthorized "Invalid subject claim: unable to parse user id.")
+                with _ ->
+                    Error(Unauthorized "Refresh token is invalid.")

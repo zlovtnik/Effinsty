@@ -32,6 +32,12 @@ type RedisSessionStore(redis: IConnectionMultiplexer, options: IOptions<RedisOpt
     interface ISessionStore with
         member _.SaveAsync(record, _ct) =
             task {
+                let now = DateTimeOffset.UtcNow
+                let expiry = record.ExpiresAt - now
+
+                if expiry <= TimeSpan.Zero then
+                    raise (InvalidOperationException("Cannot persist an already expired session record."))
+
                 let dto = {
                     SessionId = record.SessionId
                     UserId = UserId.value record.UserId
@@ -41,8 +47,6 @@ type RedisSessionStore(redis: IConnectionMultiplexer, options: IOptions<RedisOpt
                 }
 
                 let payload = JsonSerializer.Serialize(dto)
-                let ttl = record.ExpiresAt - DateTimeOffset.UtcNow
-                let expiry = if ttl <= TimeSpan.Zero then TimeSpan.FromMinutes(1.0) else ttl
                 do! db.StringSetAsync(makeKey record.SessionId, payload, expiry) :> Task
             }
 
@@ -55,14 +59,17 @@ type RedisSessionStore(redis: IConnectionMultiplexer, options: IOptions<RedisOpt
                 else
                     let dto = JsonSerializer.Deserialize<SessionDto>(result.ToString())
 
-                    return
-                        Some {
-                            SessionId = dto.SessionId
-                            UserId = UserId dto.UserId
-                            TenantId = TenantId dto.TenantId
-                            RefreshToken = dto.RefreshToken
-                            ExpiresAt = dto.ExpiresAtUtc
-                        }
+                    if obj.ReferenceEquals(dto, null) then
+                        return None
+                    else
+                        return
+                            Some {
+                                SessionId = dto.SessionId
+                                UserId = UserId dto.UserId
+                                TenantId = TenantId dto.TenantId
+                                RefreshToken = dto.RefreshToken
+                                ExpiresAt = dto.ExpiresAtUtc
+                            }
             }
 
         member _.DeleteAsync(sessionId, _ct) =

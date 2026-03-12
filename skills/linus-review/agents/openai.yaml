@@ -1,0 +1,4 @@
+interface:
+  display_name: "🔥 Linus Review"
+  short_description: "Brutally honest technical code reviews"
+  default_prompt: "Use $linus-review to review this patch with uncompromising focus on compatibility, performance, simplicity, and practical correctness."

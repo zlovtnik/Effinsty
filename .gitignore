@@ -39,14 +39,8 @@ docker-compose.override.yml
 # Certificates
 *.pfx
 
-# Rider debug
-.idea/
-
 # Test result files
 tests/**/TestResults/
-
-# JetBrains Rider caches
-.idea/
 
 # Visual Studio Code
 .vscode/

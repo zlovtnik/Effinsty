@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant C as Client
+    participant A as Effinsty.Api
+    participant T as Tenant Resolver
+    participant S as Contact Service
+    participant R as Oracle Repository
+    participant O as Oracle
+    C->>A: GET /api/contacts + JWT + X-Tenant-ID
+    A->>A: Correlation middleware
+    A->>T: Resolve tenant header
+    T-->>A: TenantContext
+    A->>A: JWT auth
+    A->>S: ListAsync(...)
+    S->>R: Query using bind vars
+    R->>O: SELECT ...
+    O-->>R: rows
+    R-->>S: contacts
+    S-->>A: Result
+    A-->>C: 200 JSON

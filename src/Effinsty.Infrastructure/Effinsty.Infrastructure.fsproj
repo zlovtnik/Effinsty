@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="InternalsVisibleTo.fs" />
     <Compile Include="Configuration.fs" />
     <Compile Include="SqlTemplates.fs" />
     <Compile Include="OracleConnectionFactory.fs" />

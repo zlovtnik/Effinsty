@@ -1,6 +1,8 @@
 namespace Effinsty.Application
 
 open System
+open System.Security.Cryptography
+open System.Text
 open System.Threading
 open System.Threading.Tasks
 open Effinsty.Domain
@@ -8,6 +10,38 @@ open Effinsty.Domain
 module private Helpers =
     let userOwnsContact (userId: UserId) (contact: Contact) =
         contact.UserId = userId
+
+    let fixedTimeEquals (left: string) (right: string) =
+        if isNull left || isNull right then
+            false
+        else
+            let leftBytes = Encoding.UTF8.GetBytes(left)
+            let rightBytes = Encoding.UTF8.GetBytes(right)
+            CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes)
+
+    let formatException (ex: exn) =
+        $"{ex.GetType().Name}: {ex.Message}"
+
+    let deleteSessionWithRetry (sessionStore: ISessionStore) (sessionId: string) (ct: CancellationToken) =
+        let maxAttempts = 3
+        let retryDelay: TimeSpan = TimeSpan.FromMilliseconds(50.0)
+
+        let rec attemptDelete attempt =
+            task {
+                try
+                    do! sessionStore.DeleteAsync(sessionId, ct)
+                    return Ok()
+                with
+                | :? OperationCanceledException as ex ->
+                    return raise ex
+                | ex when attempt < maxAttempts ->
+                    do! Task.Delay(retryDelay, ct)
+                    return! attemptDelete (attempt + 1)
+                | ex ->
+                    return Error ex
+            }
+
+        attemptDelete 1
 
 type ContactService(repository: IContactRepository) =
     interface IContactService with
@@ -162,7 +196,11 @@ type AuthService(
     interface IAuthService with
         member _.LoginAsync(tenant, command, ct) =
             task {
-                let username = command.Username.Trim().ToLowerInvariant()
+                let username =
+                    if String.IsNullOrWhiteSpace(command.Username) then
+                        String.Empty
+                    else
+                        command.Username.Trim().ToLowerInvariant()
 
                 if String.IsNullOrWhiteSpace(username) || String.IsNullOrWhiteSpace(command.Password) then
                     return Error(ValidationError [ "Username and password are required." ])
@@ -207,7 +245,7 @@ type AuthService(
 
                         match session with
                         | None -> return Error(Unauthorized "Session not found.")
-                        | Some stored when stored.RefreshToken <> command.RefreshToken ->
+                        | Some stored when not (Helpers.fixedTimeEquals stored.RefreshToken command.RefreshToken) ->
                             return Error(Unauthorized "Session token mismatch.")
                         | Some stored when stored.ExpiresAt <= DateTimeOffset.UtcNow ->
                             do! sessionStore.DeleteAsync(stored.SessionId, ct)
@@ -217,6 +255,9 @@ type AuthService(
 
                             match user with
                             | None -> return Error(Unauthorized "User not found for this session.")
+                            | Some foundUser when not foundUser.Active ->
+                                do! sessionStore.DeleteAsync(payload.SessionId, ct)
+                                return Error(Forbidden "User account is disabled.")
                             | Some foundUser ->
                                 match tokenProvider.IssueTokens(foundUser, tenant) with
                                 | Error err -> return Error err
@@ -224,8 +265,6 @@ type AuthService(
                                     match tokenProvider.ValidateRefreshToken(tokens.RefreshToken) with
                                     | Error err -> return Error err
                                     | Ok newPayload ->
-                                        do! sessionStore.DeleteAsync(payload.SessionId, ct)
-
                                         let newSession = {
                                             SessionId = newPayload.SessionId
                                             UserId = foundUser.Id
@@ -235,7 +274,32 @@ type AuthService(
                                         }
 
                                         do! sessionStore.SaveAsync(newSession, ct)
-                                        return Ok tokens
+                                        let! oldSessionDeleteResult = Helpers.deleteSessionWithRetry sessionStore payload.SessionId ct
+
+                                        match oldSessionDeleteResult with
+                                        | Ok () -> return Ok tokens
+                                        | Error oldSessionDeleteError ->
+                                            let! rollbackResult = Helpers.deleteSessionWithRetry sessionStore newSession.SessionId ct
+                                            let tenantId = TenantId.value tenant.TenantId
+                                            let oldDeleteDetail = Helpers.formatException oldSessionDeleteError
+
+                                            match rollbackResult with
+                                            | Ok () ->
+                                                return
+                                                    Error(
+                                                        InfrastructureError(
+                                                            $"Refresh token rotation failed for tenant '{tenantId}' while deleting old session '{payload.SessionId}' ({oldDeleteDetail}). New session '{newSession.SessionId}' was revoked to prevent dual-valid tokens."
+                                                        )
+                                                    )
+                                            | Error rollbackError ->
+                                                let rollbackDetail = Helpers.formatException rollbackError
+
+                                                return
+                                                    Error(
+                                                        InfrastructureError(
+                                                            $"Refresh token rotation failed for tenant '{tenantId}'. Old session '{payload.SessionId}' deletion failed ({oldDeleteDetail}) and rollback deletion for new session '{newSession.SessionId}' also failed ({rollbackDetail})."
+                                                        )
+                                                    )
             }
 
         member _.LogoutAsync(tenant, command, ct) =

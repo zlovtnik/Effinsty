@@ -1,6 +1,8 @@
 namespace Effinsty.Domain
 
 open System
+open System.Runtime.Serialization
+open System.Text.Json.Serialization
 
 type TenantId = TenantId of string
 
@@ -20,12 +22,18 @@ type User = {
     Id: UserId
     TenantId: TenantId
     Username: string
+    [<JsonIgnore; IgnoreDataMember>]
     Email: string
+    [<JsonIgnore; IgnoreDataMember>]
     PasswordHash: string
     Active: bool
     CreatedAt: DateTimeOffset
     UpdatedAt: DateTimeOffset
-}
+} with
+    override this.ToString() =
+        let (UserId userId) = this.Id
+        let (TenantId tenantId) = this.TenantId
+        $"User(Id={userId}, TenantId={tenantId}, Username={this.Username}, Active={this.Active})"
 
 type Contact = {
     Id: ContactId
@@ -45,7 +53,9 @@ type AuthToken = {
     AccessToken: string
     RefreshToken: string
     ExpiresAt: DateTimeOffset
-}
+} with
+    override this.ToString() =
+        $"AuthToken(AccessToken=<redacted>, RefreshToken=<redacted>, ExpiresAt={this.ExpiresAt:O})"
 
 type RefreshTokenPayload = {
     UserId: UserId

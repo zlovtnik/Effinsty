@@ -26,9 +26,9 @@ module ErrorHttp =
         | Unauthorized value
         | Forbidden value
         | NotFound value
-        | Conflict value
-        | InfrastructureError value
-        | UnexpectedError value -> value
+        | Conflict value -> value
+        | InfrastructureError _
+        | UnexpectedError _ -> "An internal server error occurred."
 
     let toDetails = function
         | ValidationError details -> details

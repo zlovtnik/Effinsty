@@ -11,20 +11,17 @@ type OracleConnectivityHealthCheck(options: IOptions<OracleOptions>) =
     interface IHealthCheck with
         member _.CheckHealthAsync(_context, ct: CancellationToken) =
             task {
-                try
-                    let config = options.Value
+                let config = options.Value
 
-                    if not (String.IsNullOrWhiteSpace(config.WalletLocation)) then
-                        OracleConfiguration.WalletLocation <- config.WalletLocation
-
-                    if not (String.IsNullOrWhiteSpace(config.TnsAdmin)) then
-                        OracleConfiguration.TnsAdmin <- config.TnsAdmin
-
-                    let timeout = if config.ConnectionTimeoutSeconds <= 0 then 30 else config.ConnectionTimeoutSeconds
-                    let connectionString = $"User Id=/;Data Source={config.DataSource};Connection Timeout={timeout}"
-                    use conn = new OracleConnection(connectionString)
-                    do! conn.OpenAsync(ct)
-                    return HealthCheckResult.Healthy("Oracle wallet connectivity is healthy.")
-                with ex ->
-                    return HealthCheckResult.Unhealthy("Oracle wallet connectivity check failed.", ex)
+                if String.IsNullOrWhiteSpace(config.DataSource) then
+                    return HealthCheckResult.Unhealthy("OracleHealthCheck failed: DataSource is required but was missing.")
+                else
+                    try
+                        let timeout = if config.ConnectionTimeoutSeconds <= 0 then 30 else config.ConnectionTimeoutSeconds
+                        let connectionString = $"User Id=/;Data Source={config.DataSource};Connection Timeout={timeout}"
+                        use conn = new OracleConnection(connectionString)
+                        do! conn.OpenAsync(ct)
+                        return HealthCheckResult.Healthy("Oracle wallet connectivity is healthy.")
+                    with ex ->
+                        return HealthCheckResult.Unhealthy("Oracle wallet connectivity check failed.", ex)
             }

@@ -35,24 +35,40 @@ type private ContactRow = {
     UPDATED_AT: DateTimeOffset
 }
 
-module private Mapping =
-    let private parseGuid (value: string) =
-        match Guid.TryParse(value) with
-        | true, guid -> guid
-        | _ -> Guid.Empty
-
-    let private deserializeMetadata (value: string) =
+module internal RepositoryMetadata =
+    let deserializeContactMetadata (contactId: string) (userId: string) (value: string) =
         if String.IsNullOrWhiteSpace(value) then
             Map.empty
         else
             try
-                JsonSerializer.Deserialize<Map<string, string>>(value)
-            with _ ->
-                Map.empty
+                let metadata = JsonSerializer.Deserialize<Map<string, string>>(value)
+
+                if isNull (box metadata) then
+                    raise (InvalidOperationException("CONTACTS.METADATA_JSON deserialized to null."))
+
+                metadata
+            with :? JsonException as ex ->
+                let payloadLength = value.Length
+
+                raise (
+                    InvalidOperationException(
+                        $"Invalid CONTACTS.METADATA_JSON for CONTACTS.ID='{contactId}', CONTACTS.USER_ID='{userId}', PayloadLength={payloadLength}.",
+                        ex
+                    )
+                )
+
+module private Mapping =
+    let private parseGuid (fieldName: string) (value: string) =
+        if String.IsNullOrWhiteSpace(value) then
+            raise (InvalidOperationException($"{fieldName} cannot be null or empty."))
+
+        match Guid.TryParse(value) with
+        | true, guid -> guid
+        | _ -> raise (InvalidOperationException($"Unable to parse GUID for field '{fieldName}' with value '{value}'."))
 
     let toUser (row: UserRow) =
         {
-            Id = UserId(parseGuid row.ID)
+            Id = UserId(parseGuid "USERS.ID" row.ID)
             TenantId = TenantId row.TENANT_ID
             Username = row.USERNAME
             Email = row.EMAIL
@@ -64,15 +80,15 @@ module private Mapping =
 
     let toContact (row: ContactRow) =
         {
-            Id = ContactId(parseGuid row.ID)
+            Id = ContactId(parseGuid "CONTACTS.ID" row.ID)
             TenantId = TenantId row.TENANT_ID
-            UserId = UserId(parseGuid row.USER_ID)
+            UserId = UserId(parseGuid "CONTACTS.USER_ID" row.USER_ID)
             FirstName = row.FIRST_NAME
             LastName = row.LAST_NAME
             Email = if String.IsNullOrWhiteSpace(row.EMAIL) then None else Some row.EMAIL
             Phone = if String.IsNullOrWhiteSpace(row.PHONE) then None else Some row.PHONE
             Address = if String.IsNullOrWhiteSpace(row.ADDRESS) then None else Some row.ADDRESS
-            Metadata = deserializeMetadata row.METADATA_JSON
+            Metadata = RepositoryMetadata.deserializeContactMetadata row.ID row.USER_ID row.METADATA_JSON
             CreatedAt = row.CREATED_AT
             UpdatedAt = row.UPDATED_AT
         }
@@ -121,6 +137,12 @@ type OracleContactRepository(factory: IOracleConnectionFactory) =
     interface IContactRepository with
         member _.ListAsync(tenant, userId, page, pageSize, ct) =
             task {
+                if page <= 0 then
+                    raise (ArgumentOutOfRangeException("page", page, "Parameter 'page' must be greater than zero."))
+
+                if pageSize <= 0 then
+                    raise (ArgumentOutOfRangeException("pageSize", pageSize, "Parameter 'pageSize' must be greater than zero."))
+
                 use! conn = factory.CreateOpenConnectionAsync(tenant, ct)
                 let sql = SqlTemplates.contactsList (schema tenant)
                 let parameters = DynamicParameters()

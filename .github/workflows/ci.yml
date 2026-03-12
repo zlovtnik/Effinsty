@@ -43,3 +43,10 @@ jobs:
 
       - name: Build container
         run: docker build -t effinsty-api:${{ github.sha }} .
+
+      - name: Render Kubernetes manifest with image tag
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          sed "s|\${IMAGE_TAG}|${IMAGE_TAG}|g" k8s/deployment.yaml > /tmp/effinsty-deployment.yaml
+          grep -q "ghcr.io/zlovtnik/effinsty-api:${IMAGE_TAG}" /tmp/effinsty-deployment.yaml

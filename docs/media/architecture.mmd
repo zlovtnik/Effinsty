@@ -1,0 +1,12 @@
+flowchart LR
+    Client["API Client"] --> Api["Effinsty.Api\nGiraffe HTTP Layer"]
+    subgraph Core["Core Services"]
+      Domain["Effinsty.Domain\nRecords, DUs, Validation"]
+      App["Effinsty.Application\nUse-cases + Result Pipelines"]
+      Infra["Effinsty.Infrastructure\nOracle, Redis, JWT, Tenant Resolver"]
+    end
+    Api --> App
+    App --> Domain
+    App --> Infra
+    Infra --> Oracle[("Oracle Database\nSchema-per-tenant")]
+    Infra --> Redis[("Redis\nSession Store")]

@@ -1,12 +1,14 @@
 namespace Effinsty.Api
 
 open System
+open System.Text.Json
 open Effinsty.Api.Context
 open Effinsty.Application
 open Effinsty.Domain
 open Giraffe
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Logging
 
 module private HandlerHelpers =
     let stringToOption (value: string) =
@@ -29,6 +31,13 @@ module private HandlerHelpers =
     let errorToResponse (ctx: HttpContext) (error: AppError) =
         let correlationId = tryGetCorrelationId ctx |> Option.defaultValue String.Empty
 
+        match error with
+        | InfrastructureError detail
+        | UnexpectedError detail ->
+            let logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Effinsty.Api.ErrorResponse")
+            logger.LogError("Server error for correlation id {CorrelationId}: {ErrorDetail}", correlationId, detail)
+        | _ -> ()
+
         let payload =
             {
                 Code = ErrorHttp.toCode error
@@ -49,24 +58,36 @@ module AuthHandlers =
         fun next ctx ->
             task {
                 let service = ctx.RequestServices.GetRequiredService<IAuthService>()
-                let! request = ctx.BindJsonAsync<LoginRequest>()
-
-                match tryGetTenantContext ctx with
-                | None ->
-                    let error = ValidationError [ "Tenant context is missing." ]
-                    return! HandlerHelpers.errorToResponse ctx error next ctx
-                | Some tenant ->
-                    let command = {
-                        Username = request.Username
-                        Password = request.Password
+                let! requestResult =
+                    task {
+                        try
+                            let! parsed = ctx.BindJsonAsync<LoginRequest>()
+                            return Ok parsed
+                        with
+                        | :? JsonException
+                        | :? InvalidOperationException ->
+                            return Error(ValidationError [ "Invalid login payload." ])
                     }
 
-                    let! result = service.LoginAsync(tenant, command, ctx.RequestAborted)
+                match requestResult with
+                | Error error -> return! HandlerHelpers.errorToResponse ctx error next ctx
+                | Ok request ->
+                    match tryGetTenantContext ctx with
+                    | None ->
+                        let error = ValidationError [ "Tenant context is missing." ]
+                        return! HandlerHelpers.errorToResponse ctx error next ctx
+                    | Some tenant ->
+                        let command = {
+                            Username = request.Username
+                            Password = request.Password
+                        }
 
-                    return!
-                        HandlerHelpers.fromResult result (Mapping.toLoginResponse >> json)
-                            next
-                            ctx
+                        let! result = service.LoginAsync(tenant, command, ctx.RequestAborted)
+
+                        return!
+                            HandlerHelpers.fromResult result (Mapping.toLoginResponse >> json)
+                                next
+                                ctx
             }
 
     let refresh: HttpHandler =
@@ -110,6 +131,8 @@ module AuthHandlers =
             }
 
 module ContactHandlers =
+    let [<Literal>] MaxPageSize = 100
+
     let listContacts: HttpHandler =
         fun next ctx ->
             task {
@@ -118,14 +141,22 @@ module ContactHandlers =
                 match HandlerHelpers.withTenantAndUser ctx with
                 | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
                 | Ok(tenant, userId) ->
+                    let parsePositiveInt (value: string option) =
+                        value
+                        |> Option.bind (fun raw ->
+                            match Int32.TryParse(raw) with
+                            | true, parsed when parsed > 0 -> Some parsed
+                            | _ -> None)
+
                     let page =
                         ctx.TryGetQueryStringValue("page")
-                        |> Option.bind (fun value -> match Int32.TryParse(value) with | true, parsed -> Some parsed | _ -> None)
+                        |> parsePositiveInt
                         |> Option.defaultValue 1
 
                     let pageSize =
                         ctx.TryGetQueryStringValue("pageSize")
-                        |> Option.bind (fun value -> match Int32.TryParse(value) with | true, parsed -> Some parsed | _ -> None)
+                        |> parsePositiveInt
+                        |> Option.map (fun value -> if value > MaxPageSize then MaxPageSize else value)
                         |> Option.defaultValue 20
 
                     let! result = service.ListAsync(tenant, userId, page, pageSize, ctx.RequestAborted)

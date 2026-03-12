@@ -33,5 +33,5 @@ type TenantMapEntry = {
 
 [<CLIMutable>]
 type TenantOptions = {
-    Map: Dictionary<string, TenantMapEntry>
+    mutable Map: Dictionary<string, TenantMapEntry>
 }

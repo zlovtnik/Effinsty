@@ -18,9 +18,15 @@ module Validation =
     let private schemaRegex = Regex("^[A-Z][A-Z0-9_]{0,29}$", RegexOptions.Compiled)
 
     let normalizeEmail (email: string) =
+        if isNull email then
+            nullArg (nameof email)
+
         email.Trim().ToLowerInvariant()
 
     let normalizePhone (phone: string) =
+        if isNull phone then
+            nullArg (nameof phone)
+
         phone
         |> Seq.filter Char.IsDigit
         |> Seq.toArray
@@ -29,10 +35,13 @@ module Validation =
     let validateTenantId (value: string) =
         if String.IsNullOrWhiteSpace(value) then
             Error (ValidationError [ "Tenant id is required." ])
-        elif tenantRegex.IsMatch(value) then
-            Ok (TenantId(value.Trim().ToLowerInvariant()))
         else
-            Error (ValidationError [ "Tenant id contains invalid characters." ])
+            let trimmedValue = value.Trim()
+
+            if tenantRegex.IsMatch(trimmedValue) then
+                Ok (TenantId(trimmedValue.ToLowerInvariant()))
+            else
+                Error (ValidationError [ "Tenant id contains invalid characters." ])
 
     let validateTenantSchema (value: string) =
         if String.IsNullOrWhiteSpace(value) then
@@ -50,6 +59,12 @@ module Validation =
         (address: string option)
         (metadata: Map<string, string>) =
         let errors = ResizeArray<string>()
+
+        if isNull firstName then
+            nullArg (nameof firstName)
+
+        if isNull lastName then
+            nullArg (nameof lastName)
 
         let first = firstName.Trim()
         let last = lastName.Trim()

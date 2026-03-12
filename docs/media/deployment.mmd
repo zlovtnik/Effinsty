@@ -1,0 +1,9 @@
+flowchart TB
+    Ingress["Ingress / LB"] --> Pod1["effinsty-api pod"]
+    Ingress --> Pod2["effinsty-api pod"]
+    Pod1 --> Wallet["K8s Secret\nOracle Wallet files"]
+    Pod2 --> Wallet
+    Pod1 --> Oracle[("Oracle DB")]
+    Pod2 --> Oracle
+    Pod1 --> Redis[("Redis")]
+    Pod2 --> Redis

@@ -4,9 +4,9 @@ Copy this template into the root `CLAUDE.md` file and adapt project-specific nam
 
 ## Build And Test Commands
 
+- Restore tools/packages: `dotnet restore`
 - Build: `dotnet build`
 - Test: `dotnet test`
-- Restore tools/packages: `dotnet restore`
 
 Run build and tests before handing work back.
 

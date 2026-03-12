@@ -14,8 +14,9 @@ open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
-open Microsoft.Extensions.Options
+open Microsoft.Extensions.Logging
 open Microsoft.IdentityModel.Tokens
+open Oracle.ManagedDataAccess.Client
 
 module Program =
     let private isHealthPath (path: PathString) =
@@ -74,23 +75,30 @@ module Program =
             try
                 return! next.Invoke(ctx)
             with ex ->
+                let logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Effinsty.Api.ErrorHandlingMiddleware")
+                logger.LogError(ex, "Unhandled exception while processing request {Method} {Path}", ctx.Request.Method, ctx.Request.Path.Value)
+
                 let correlationId = tryGetCorrelationId ctx |> Option.defaultValue String.Empty
 
                 let payload =
                     {
                         Code = "unexpected_error"
                         Message = "Unhandled server error."
-                        Details = [ ex.Message ]
+                        Details = [ "An internal error occurred." ]
                         CorrelationId = correlationId
                     }
 
-                ctx.Response.StatusCode <- 500
-                return! ctx.Response.WriteAsJsonAsync(payload)
+                if ctx.Response.HasStarted then
+                    return ()
+                else
+                    ctx.Response.StatusCode <- 500
+                    return! ctx.Response.WriteAsJsonAsync(payload)
         }
 
     let private webApp =
         choose [
             GET >=> route "/api/health" >=> json {| status = "ok" |}
+            GET >=> route "/api/health/live" >=> json {| status = "live" |}
 
             POST >=> route "/api/auth/login" >=> AuthHandlers.login
             POST >=> route "/api/auth/refresh" >=> AuthHandlers.refresh
@@ -114,10 +122,31 @@ module Program =
     let main args =
         let builder = WebApplication.CreateBuilder(args)
 
+        let environmentSigningKey = Environment.GetEnvironmentVariable("JWT__SIGNINGKEY")
+
+        if not (String.IsNullOrWhiteSpace(environmentSigningKey)) then
+            builder.Configuration["Jwt:SigningKey"] <- environmentSigningKey
+
+        let oracleOptions = builder.Configuration.GetSection("Oracle").Get<OracleOptions>()
+
+        if not (obj.ReferenceEquals(oracleOptions, null)) then
+            if not (String.IsNullOrWhiteSpace(oracleOptions.WalletLocation)) then
+                OracleConfiguration.WalletLocation <- oracleOptions.WalletLocation
+
+            if not (String.IsNullOrWhiteSpace(oracleOptions.TnsAdmin)) then
+                OracleConfiguration.TnsAdmin <- oracleOptions.TnsAdmin
+
         builder.Services.AddGiraffe() |> ignore
         builder.Services.AddEffinstyInfrastructure(builder.Configuration) |> ignore
 
         let jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
+
+        if obj.ReferenceEquals(jwtOptions, null) then
+            raise (InvalidOperationException("Jwt configuration section is missing or invalid. Ensure Jwt settings are configured."))
+
+        if String.IsNullOrWhiteSpace(jwtOptions.SigningKey) then
+            raise (InvalidOperationException("Jwt:SigningKey is required and must be provided via environment variable or secret store."))
+
         let signingKey = SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey))
 
         builder.Services
