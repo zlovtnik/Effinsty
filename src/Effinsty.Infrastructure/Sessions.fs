@@ -14,7 +14,7 @@ type private SessionDto = {
     SessionId: string
     UserId: Guid
     TenantId: string
-    RefreshToken: string
+    RefreshTokenHash: string
     ExpiresAtUtc: DateTimeOffset
 }
 
@@ -42,7 +42,7 @@ type RedisSessionStore(redis: IConnectionMultiplexer, options: IOptions<RedisOpt
                     SessionId = record.SessionId
                     UserId = UserId.value record.UserId
                     TenantId = TenantId.value record.TenantId
-                    RefreshToken = record.RefreshToken
+                    RefreshTokenHash = record.RefreshTokenHash
                     ExpiresAtUtc = record.ExpiresAt
                 }
 
@@ -67,7 +67,7 @@ type RedisSessionStore(redis: IConnectionMultiplexer, options: IOptions<RedisOpt
                                 SessionId = dto.SessionId
                                 UserId = UserId dto.UserId
                                 TenantId = TenantId dto.TenantId
-                                RefreshToken = dto.RefreshToken
+                                RefreshTokenHash = dto.RefreshTokenHash
                                 ExpiresAt = dto.ExpiresAtUtc
                             }
             }

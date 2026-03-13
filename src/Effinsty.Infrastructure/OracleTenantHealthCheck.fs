@@ -23,21 +23,50 @@ type OracleTenantHealthCheck(
             task {
                 let mutable allHealthy = true
                 let results = Dictionary<string, obj>()
+                let timeout = if config.ConnectionTimeoutSeconds <= 0 then 30 else config.ConnectionTimeoutSeconds
+                let userId = if String.IsNullOrWhiteSpace(config.UserId) then Environment.GetEnvironmentVariable("ORACLE_USER_ID") else config.UserId
+
+                let password =
+                    if String.IsNullOrWhiteSpace(config.Password) then
+                        Environment.GetEnvironmentVariable("ORACLE_PASSWORD")
+                    else
+                        config.Password
+
+                let baseBuilder = OracleConnectionStringBuilder()
+                baseBuilder.ConnectionTimeout <- timeout
+
+                if String.IsNullOrWhiteSpace(userId) then
+                    baseBuilder.UserID <- "/"
+                elif String.IsNullOrWhiteSpace(password) then
+                    baseBuilder.UserID <- userId
+                else
+                    baseBuilder.UserID <- userId
+                    baseBuilder.Password <- password
 
                 for kvp in tenantOptions.Value.Map do
-                    let alias = kvp.Value.DataSourceAlias
+                    let configuredAlias =
+                        if String.IsNullOrWhiteSpace(kvp.Value.DataSourceAlias) then
+                            config.DataSource
+                        else
+                            kvp.Value.DataSourceAlias
+
+                    let alias =
+                        if String.IsNullOrWhiteSpace(configuredAlias) then
+                            let fromOracleEnv = Environment.GetEnvironmentVariable("ORACLE_DATA_SOURCE")
+
+                            if String.IsNullOrWhiteSpace(fromOracleEnv) then
+                                Environment.GetEnvironmentVariable("DATA_SOURCE")
+                            else
+                                fromOracleEnv
+                        else
+                            configuredAlias
+
                     let sw = Stopwatch.StartNew()
 
                     try
-                        let authSegment =
-                            if String.IsNullOrWhiteSpace(config.UserId) then
-                                "User Id=/"
-                            elif String.IsNullOrWhiteSpace(config.Password) then
-                                $"User Id={config.UserId}"
-                            else
-                                $"User Id={config.UserId};Password={config.Password}"
-
-                        use conn = new OracleConnection($"{authSegment};Data Source={alias}")
+                        let builder = OracleConnectionStringBuilder(baseBuilder.ConnectionString)
+                        builder.DataSource <- alias
+                        use conn = new OracleConnection(builder.ConnectionString)
                         do! conn.OpenAsync(ct)
                         let! _ = conn.ExecuteScalarAsync<int>(CommandDefinition("SELECT 1 FROM DUAL", cancellationToken = ct))
                         sw.Stop()

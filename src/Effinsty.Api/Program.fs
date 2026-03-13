@@ -20,6 +20,33 @@ open Microsoft.IdentityModel.Tokens
 open Oracle.ManagedDataAccess.Client
 
 module Program =
+    let private firstNonEmpty (values: string seq) =
+        values
+        |> Seq.tryFind (fun value -> not (String.IsNullOrWhiteSpace(value)))
+
+    let private resolveConfigValue (configuration: IConfiguration) (configKeys: string list) (envVars: string list) =
+        let fromConfig =
+            configKeys
+            |> Seq.tryPick (fun key ->
+                let value = configuration.GetValue<string>(key)
+
+                if String.IsNullOrWhiteSpace(value) then
+                    None
+                else
+                    Some value)
+
+        match fromConfig with
+        | Some value -> Some value
+        | None ->
+            envVars
+            |> Seq.tryPick (fun name ->
+                let value = Environment.GetEnvironmentVariable(name)
+
+                if String.IsNullOrWhiteSpace(value) then
+                    None
+                else
+                    Some value)
+
     let private isHealthPath (path: PathString) =
         path.StartsWithSegments(PathString("/api/health"), StringComparison.OrdinalIgnoreCase)
         || path.StartsWithSegments(PathString("/api/health/oracle"), StringComparison.OrdinalIgnoreCase)
@@ -149,13 +176,40 @@ module Program =
             builder.Configuration["Jwt:SigningKey"] <- environmentSigningKey
 
         let oracleOptions = builder.Configuration.GetSection("Oracle").Get<OracleOptions>()
+        let configuredWalletLocation = if obj.ReferenceEquals(oracleOptions, null) then None else firstNonEmpty [ oracleOptions.WalletLocation ]
+        let configuredTnsAdmin = if obj.ReferenceEquals(oracleOptions, null) then None else firstNonEmpty [ oracleOptions.TnsAdmin ]
+        let configuredDataSource = if obj.ReferenceEquals(oracleOptions, null) then None else firstNonEmpty [ oracleOptions.DataSource ]
 
-        if not (obj.ReferenceEquals(oracleOptions, null)) then
-            if not (String.IsNullOrWhiteSpace(oracleOptions.WalletLocation)) then
-                OracleConfiguration.WalletLocation <- oracleOptions.WalletLocation
+        let walletLocation =
+            configuredWalletLocation
+            |> Option.orElseWith (fun () ->
+                resolveConfigValue builder.Configuration [ "Oracle:WalletLocation"; "WalletLocation" ] [ "ORACLE_WALLET_PATH"; "WALLET_LOCATION" ])
 
-            if not (String.IsNullOrWhiteSpace(oracleOptions.TnsAdmin)) then
-                OracleConfiguration.TnsAdmin <- oracleOptions.TnsAdmin
+        let tnsAdmin =
+            configuredTnsAdmin
+            |> Option.orElseWith (fun () ->
+                resolveConfigValue builder.Configuration [ "Oracle:TnsAdmin"; "TnsAdmin" ] [ "ORACLE_TNS_ADMIN"; "TNS_ADMIN" ])
+
+        let dataSource =
+            configuredDataSource
+            |> Option.orElseWith (fun () ->
+                resolveConfigValue builder.Configuration [ "Oracle:DataSource"; "DataSource" ] [ "ORACLE_DATA_SOURCE"; "DATA_SOURCE" ])
+
+        match walletLocation with
+        | Some value ->
+            builder.Configuration["Oracle:WalletLocation"] <- value
+            OracleConfiguration.WalletLocation <- value
+        | None -> ()
+
+        match tnsAdmin with
+        | Some value ->
+            builder.Configuration["Oracle:TnsAdmin"] <- value
+            OracleConfiguration.TnsAdmin <- value
+        | None -> ()
+
+        match dataSource with
+        | Some value -> builder.Configuration["Oracle:DataSource"] <- value
+        | None -> ()
 
         builder.Services.AddGiraffe() |> ignore
         builder.Services.AddEffinstyInfrastructure(builder.Configuration) |> ignore

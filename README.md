@@ -186,6 +186,12 @@ Use `appsettings.example.json`/`appsettings.Development.json`, `dotnet user-secr
 
 Keep non-secret tenant routing values such as `Tenancy:Map:*` in tracked configuration (or set them via local user-secrets/env vars during development).
 
+Oracle runtime settings should be provided via secret/config management, not committed paths:
+- wallet path: `ORACLE_WALLET_PATH` (fallback `WALLET_LOCATION`)
+- TNS admin path: `ORACLE_TNS_ADMIN` (fallback `TNS_ADMIN`)
+- data source alias: `ORACLE_DATA_SOURCE` (fallback `DATA_SOURCE`)
+- alternatively use .NET config keys (`Oracle:WalletLocation`, `Oracle:TnsAdmin`, `Oracle:DataSource`) through user-secrets or environment variables (`Oracle__...`)
+
 ## Media
 
 Reusable diagram sources are stored in:

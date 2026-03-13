@@ -19,6 +19,13 @@ module private Helpers =
             let rightBytes = Encoding.UTF8.GetBytes(right)
             CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes)
 
+    let hashRefreshToken (token: string) =
+        use sha256 = SHA256.Create()
+        token
+        |> Encoding.UTF8.GetBytes
+        |> sha256.ComputeHash
+        |> Convert.ToHexString
+
     let formatException (ex: exn) =
         $"{ex.GetType().Name}: {ex.Message}"
 
@@ -224,7 +231,7 @@ type AuthService(
                                     SessionId = payload.SessionId
                                     UserId = user.Id
                                     TenantId = tenant.TenantId
-                                    RefreshToken = tokens.RefreshToken
+                                    RefreshTokenHash = Helpers.hashRefreshToken tokens.RefreshToken
                                     ExpiresAt = tokens.ExpiresAt
                                 }
 
@@ -246,7 +253,7 @@ type AuthService(
 
                         match session with
                         | None -> return Error(Unauthorized "Session not found.")
-                        | Some stored when not (Helpers.fixedTimeEquals stored.RefreshToken command.RefreshToken) ->
+                        | Some stored when not (Helpers.fixedTimeEquals stored.RefreshTokenHash (Helpers.hashRefreshToken command.RefreshToken)) ->
                             return Error(Unauthorized "Session token mismatch.")
                         | Some stored when stored.ExpiresAt <= DateTimeOffset.UtcNow ->
                             do! sessionStore.DeleteAsync(stored.SessionId, ct)
@@ -270,7 +277,7 @@ type AuthService(
                                             SessionId = newPayload.SessionId
                                             UserId = foundUser.Id
                                             TenantId = tenant.TenantId
-                                            RefreshToken = tokens.RefreshToken
+                                            RefreshTokenHash = Helpers.hashRefreshToken tokens.RefreshToken
                                             ExpiresAt = tokens.ExpiresAt
                                         }
 

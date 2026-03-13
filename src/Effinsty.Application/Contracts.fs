@@ -47,7 +47,7 @@ type SessionRecord = {
     SessionId: string
     UserId: UserId
     TenantId: TenantId
-    RefreshToken: string
+    RefreshTokenHash: string
     ExpiresAt: DateTimeOffset
 }
 

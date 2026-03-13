@@ -8,7 +8,12 @@ open Dapper
 
 module DbSchemaValidator =
     let private requiredTables = [| "USERS"; "CONTACTS"; "SESSIONS" |]
-    let private requiredIndexes = [| "IX_CONTACTS_USER_UPDATED"; "IX_CONTACTS_USER_EMAIL" |]
+    let private requiredIndexes =
+        [| "IX_USERS_EMAIL"
+           "IX_CONTACTS_USER_UPDATED"
+           "IX_CONTACTS_USER_EMAIL"
+           "IX_SESSIONS_USER_EXPIRES"
+           "IX_SESSIONS_EXPIRES" |]
     let private requiredTriggers = [| "TRG_USERS_UPDATED_AT"; "TRG_CONTACTS_UPDATED_AT" |]
     let private requiredFks = [| "FK_CONTACTS_USERS"; "FK_SESSIONS_USERS" |]
 
