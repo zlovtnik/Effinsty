@@ -1,21 +1,35 @@
 <script lang="ts">
+  type AlertTone = 'info' | 'danger';
+  type AlertRole = 'alert' | 'status';
+
   interface Props {
+    title?: string;
     message: string;
     details?: string[];
     correlationId?: string;
-    title?: string;
+    tone?: AlertTone;
+    role?: AlertRole;
+    className?: string;
   }
 
   let {
+    title,
     message,
     details = [],
     correlationId = '',
-    title = 'Request failed',
+    tone = 'info',
+    role = 'alert',
+    className = '',
   }: Props = $props();
+
+  const alertClass = $derived(['ui-alert', `ui-alert--${tone}`, className].filter(Boolean).join(' '));
 </script>
 
-<section class="error-panel" role="alert">
-  <h3>{title}</h3>
+<section class={alertClass} {role}>
+  {#if title}
+    <h3>{title}</h3>
+  {/if}
+
   <p>{message}</p>
 
   {#if details.length > 0}
@@ -27,7 +41,7 @@
   {/if}
 
   {#if correlationId}
-    <p class="correlation">
+    <p class="ui-alert__correlation">
       Correlation ID:
       <code>{correlationId}</code>
     </p>
@@ -35,14 +49,23 @@
 </section>
 
 <style>
-  .error-panel {
+  .ui-alert {
     border-radius: var(--radius-md);
-    border: 1px solid hsl(var(--danger) / 0.3);
-    background: hsl(var(--danger) / 0.08);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--surface-muted));
     color: hsl(var(--text));
     padding: 0.9rem;
     display: grid;
     gap: 0.5rem;
+  }
+
+  .ui-alert--danger {
+    border-color: hsl(var(--danger) / 0.3);
+    background: hsl(var(--danger) / 0.08);
+  }
+
+  .ui-alert--info {
+    color: hsl(var(--text) / 0.88);
   }
 
   h3 {
@@ -57,16 +80,18 @@
 
   ul {
     padding-left: 1.1rem;
+    display: grid;
+    gap: 0.25rem;
   }
 
-  .correlation {
+  .ui-alert__correlation {
     font-size: 0.85rem;
     color: hsl(var(--text) / 0.85);
   }
 
   code {
-    font-family: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
-    background: hsl(var(--surface-muted));
+    font-family: var(--font-family-mono);
+    background: hsl(var(--surface));
     border: 1px solid hsl(var(--border));
     border-radius: 5px;
     padding: 0.08rem 0.35rem;

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { ContactResponse, PagedResponse } from '$lib/api/contacts';
 import { RequestError } from '$lib/api/errors';
+import { contactsService } from '$lib/services/contacts/contacts.service';
 import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { sessionStore } from '$lib/stores/session.store';
@@ -13,17 +14,21 @@ vi.mock('$app/navigation', () => ({
   goto: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('$lib/api/contacts', () => ({
-  listContacts: vi.fn(),
-  deleteContact: vi.fn(),
+vi.mock('$lib/services/contacts/contacts.service', () => ({
+  contactsService: {
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
 import { goto } from '$app/navigation';
-import { listContacts } from '$lib/api/contacts';
 import ContactsPage from '../+page.svelte';
 
 const gotoMock = vi.mocked(goto);
-const listContactsMock = vi.mocked(listContacts);
+const listContactsMock = vi.mocked(contactsService.list);
 
 function mockPagedResponse(overrides: Partial<PagedResponse<ContactResponse>> = {}): PagedResponse<ContactResponse> {
   return {

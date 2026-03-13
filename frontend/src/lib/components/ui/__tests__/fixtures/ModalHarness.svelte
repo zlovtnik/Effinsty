@@ -21,8 +21,8 @@ import Modal from '../../Modal.svelte';
   }: Props = $props();
 
   const actions: Action[] = [
-    { label: 'Cancel', tone: 'secondary', onClick: onClose },
-    { label: 'Confirm', tone: 'primary', onClick: onClose },
+    { label: 'Cancel', tone: 'secondary', onClick: () => onClose() },
+    { label: 'Confirm', tone: 'primary', onClick: () => onClose() },
   ];
 
 </script>

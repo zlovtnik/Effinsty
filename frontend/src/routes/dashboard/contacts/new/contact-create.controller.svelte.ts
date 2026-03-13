@@ -1,29 +1,31 @@
 import { goto } from '$app/navigation';
-import { createContact, type ContactCreateRequest } from '$lib/api/contacts';
-import { isRequestError } from '$lib/api/errors';
+import type { ContactCreateRequest } from '$lib/api/contacts';
 import {
   createEmptyContactFormData,
   type ContactFormData,
 } from '$lib/contacts/contact-form';
+import { contactsService } from '$lib/services/contacts/contacts.service';
+import { presentError } from '$lib/services/error/error-presenter';
 import { authStore } from '$lib/stores/auth.store';
-import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
 import { announce } from '$lib/utils/a11y';
 import { trackAction, trackError } from '$lib/utils/telemetry';
-import { get } from 'svelte/store';
-
-function createCorrelationId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-}
 
 interface CreateErrorView {
   message: string;
   details: string[];
   correlationId: string;
+}
+
+function toCreateErrorView(error: unknown): CreateErrorView {
+  const presented = presentError(error, {
+    fallbackMessage: 'Unable to create contact.',
+  });
+  return {
+    message: presented.message,
+    details: presented.details,
+    correlationId: presented.correlationId,
+  };
 }
 
 export class ContactCreateController {
@@ -47,29 +49,14 @@ export class ContactCreateController {
       correlationId: '',
     };
 
-    const authState = get(authStore);
-    const tenantState = get(tenantStore);
-
-    if (!authState.accessToken || !tenantState.tenantId) {
-      this.error = {
-        message: 'Session context is missing. Please sign in again.',
-        details: [],
-        correlationId: '',
-      };
-      announce('Session context is missing. Please sign in again.', 'assertive');
-      this.isSubmitting = false;
-      return;
-    }
-
     try {
+      const context = authStore.getRequestContext();
       announce('Creating contact.');
       trackAction('contact_create', { status: 'start' });
-      const created = await createContact(
-        tenantState.tenantId,
-        authState.accessToken,
+      const created = await contactsService.create({
+        context,
         payload,
-        createCorrelationId()
-      );
+      });
 
       uiStore.enqueueNotification('success', 'Contact created successfully.');
       trackAction('contact_create', {
@@ -79,19 +66,7 @@ export class ContactCreateController {
       announce('Contact created successfully.');
       await goto(`/dashboard/contacts/${created.id}`);
     } catch (error) {
-      if (isRequestError(error)) {
-        this.error = {
-          message: error.appError.message,
-          details: error.appError.details,
-          correlationId: error.appError.correlationId ?? '',
-        };
-      } else {
-        this.error = {
-          message: error instanceof Error ? error.message : 'Unable to create contact.',
-          details: [],
-          correlationId: '',
-        };
-      }
+      this.error = toCreateErrorView(error);
       trackAction('contact_create', {
         status: 'failure',
         message: this.error.message,

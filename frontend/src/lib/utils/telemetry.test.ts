@@ -8,11 +8,10 @@ import {
   trackError,
   type TelemetrySink,
   trackWebVital,
-  type TelemetryEvent,
 } from './telemetry';
 
 describe('telemetry', () => {
-  const sink = vi.fn<TelemetrySink>((_event: TelemetryEvent) => undefined);
+  const sink = vi.fn<TelemetrySink>(() => undefined);
 
   beforeEach(() => {
     vi.clearAllMocks();

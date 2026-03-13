@@ -24,10 +24,15 @@ test('login, list, create, edit, delete, and logout with mocked API flows', asyn
     updatedAt: '2026-03-12T12:00:00Z',
   };
 
-  await page.route('**/api/**', async (route) => {
+  await page.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+
+    if (!path.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
 
     if (path === '/api/auth/login' && request.method() === 'POST') {
       await route.fulfill({
@@ -163,6 +168,7 @@ test('login, list, create, edit, delete, and logout with mocked API flows', asyn
   });
 
   await page.goto('/login?returnTo=%2Fdashboard%2Fcontacts');
+  await page.waitForLoadState('networkidle');
   await page.getByLabel('Tenant ID').fill('tenant-a');
   await page.getByLabel('Username').fill('alice');
   await page.getByLabel('Password').fill('password');
@@ -187,7 +193,7 @@ test('login, list, create, edit, delete, and logout with mocked API flows', asyn
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('button', { name: 'Delete' }).nth(1).click();
 
-  await expect(page.getByText('No contacts found')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No contacts found' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in to your workspace' })).toBeVisible();

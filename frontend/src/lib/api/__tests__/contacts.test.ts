@@ -5,28 +5,32 @@ import { isRequestError } from '$lib/api/errors';
 import { deleteContact, getContact, listContacts, updateContact } from '$lib/api/contacts';
 import { server } from '$lib/api/__tests__/msw/server';
 
+const context = {
+  tenantId: 'tenant-a',
+  accessToken: 'token-123',
+};
+
 describe('contacts api guards', () => {
-  it('rejects getContact when id is empty', () => {
-    expect(() => getContact('tenant-a', 'token-123', '   ', 'corr-empty-get')).toThrowError(
-      /Contact id is required/
-    );
+  it('rejects getContact when id is empty', async () => {
+    await expect(
+      getContact({ context, id: '   ', correlationId: 'corr-empty-get' })
+    ).rejects.toThrow(/Contact id is required/);
   });
 
-  it('rejects updateContact when id is empty', () => {
-    expect(() =>
-      updateContact(
-        'tenant-a',
-        'token-123',
-        '   ',
-        { firstName: 'Ada', lastName: 'Lovelace' },
-        'corr-empty-update'
-      )
-    ).toThrowError(/Contact id is required/);
+  it('rejects updateContact when id is empty', async () => {
+    await expect(
+      updateContact({
+        context,
+        id: '   ',
+        payload: { firstName: 'Ada', lastName: 'Lovelace' },
+        correlationId: 'corr-empty-update',
+      })
+    ).rejects.toThrow(/Contact id is required/);
   });
 
-  it('rejects deleteContact when id is empty', () => {
+  it('rejects deleteContact when id is empty', async () => {
     try {
-      deleteContact('tenant-a', 'token-123', '', 'corr-empty-delete');
+      await deleteContact({ context, id: '', correlationId: 'corr-empty-delete' });
       throw new Error('Expected deleteContact to throw');
     } catch (error) {
       expect(isRequestError(error)).toBe(true);
@@ -61,7 +65,7 @@ describe('contacts api paging guards', () => {
       })
     );
 
-    await listContacts('tenant-a', 'token-123', 0, 999, 'corr-clamp');
+    await listContacts({ context, page: 0, pageSize: 999, correlationId: 'corr-clamp' });
 
     expect(requestedPage).toBe('1');
     expect(requestedPageSize).toBe('100');

@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import type { PresentedError } from '$lib/services/error/error-presenter';
 
 export type TenantResolutionStatus = 'unknown' | 'resolved' | 'invalid';
 
@@ -18,7 +19,7 @@ const initialState: TenantState = {
   error: null,
 };
 
-function createTenantStore() {
+export function createTenantStore() {
   const { subscribe, set, update } = writable<TenantState>(initialState);
 
   return {
@@ -49,6 +50,15 @@ function createTenantStore() {
         invalidReason: message,
         loading: false,
         error: message,
+      })),
+    applyPresentedError: (error: PresentedError, tenantId?: string) =>
+      update((state) => ({
+        ...state,
+        tenantId: tenantId ?? state.tenantId,
+        status: error.kind === 'forbidden' ? 'invalid' : state.status,
+        invalidReason: error.kind === 'forbidden' ? error.message : null,
+        loading: false,
+        error: error.message,
       })),
     setError: (message: string) =>
       update((state) => ({

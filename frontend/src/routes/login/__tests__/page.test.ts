@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 import { RequestError } from '$lib/api/errors';
@@ -6,10 +6,6 @@ import { authStore } from '$lib/stores/auth.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
-
-vi.mock('$lib/api/auth', () => ({
-  login: vi.fn(),
-}));
 
 vi.mock('$app/navigation', () => ({
   goto: vi.fn(),
@@ -19,11 +15,9 @@ vi.mock('$lib/utils/a11y', () => ({
   announce: vi.fn(),
 }));
 
-import { login } from '$lib/api/auth';
 import { goto } from '$app/navigation';
 import LoginPage from '../+page.svelte';
 
-const loginMock = vi.mocked(login);
 const gotoMock = vi.mocked(goto);
 
 describe('login page', () => {
@@ -35,7 +29,12 @@ describe('login page', () => {
     window.history.replaceState({}, '', '/login');
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('shows validation errors for empty required fields', async () => {
+    const loginMock = vi.spyOn(authStore, 'login');
     render(LoginPage);
 
     await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -50,10 +49,14 @@ describe('login page', () => {
   });
 
   it('submits login and redirects to sanitized returnTo on success', async () => {
-    loginMock.mockResolvedValue({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      expiresAt: TEST_SESSION_EXPIRY,
+    const loginMock = vi.spyOn(authStore, 'login').mockImplementation(async () => {
+      const tokens = {
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresAt: TEST_SESSION_EXPIRY,
+      };
+      authStore.completeLogin(tokens);
+      return tokens;
     });
 
     window.history.replaceState({}, '', '/login?returnTo=%2Fdashboard%2Fcontacts%3Fpage%3D2');
@@ -75,7 +78,7 @@ describe('login page', () => {
       expect(loginMock).toHaveBeenCalledWith('tenant-a', {
         username: 'alice',
         password: 'password',
-      }, expect.any(String));
+      });
     });
 
     await waitFor(() => {
@@ -87,7 +90,7 @@ describe('login page', () => {
   });
 
   it('maps backend auth failures into visible error text', async () => {
-    loginMock.mockRejectedValue(
+    vi.spyOn(authStore, 'login').mockRejectedValue(
       new RequestError({
         kind: 'auth',
         status: 401,

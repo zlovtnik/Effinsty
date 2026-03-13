@@ -1,25 +1,29 @@
 import { goto } from '$app/navigation';
-import { deleteContact, getContact, type ContactResponse } from '$lib/api/contacts';
-import { isRequestError } from '$lib/api/errors';
+import type { ContactResponse } from '$lib/api/contacts';
+import { contactsQueryHandler } from '$lib/services/contacts/contacts-query-handler';
+import { contactsService } from '$lib/services/contacts/contacts.service';
+import { presentError } from '$lib/services/error/error-presenter';
 import { authStore } from '$lib/stores/auth.store';
-import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
 import { announce } from '$lib/utils/a11y';
 import { trackAction, trackError } from '$lib/utils/telemetry';
-import { get } from 'svelte/store';
-
-function createCorrelationId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-}
 
 interface ContactErrorView {
   message: string;
   details: string[];
   correlationId: string;
+}
+
+function toContactErrorView(
+  error: unknown,
+  fallbackMessage: string
+): ContactErrorView {
+  const presented = presentError(error, { fallbackMessage });
+  return {
+    message: presented.message,
+    details: presented.details,
+    correlationId: presented.correlationId,
+  };
 }
 
 export type ContactDetailState = 'loading' | 'ready' | 'error';
@@ -90,15 +94,6 @@ export class ContactDetailController {
       return;
     }
 
-    const authState = get(authStore);
-    const tenantState = get(tenantStore);
-
-    if (!authState.accessToken || !tenantState.tenantId) {
-      uiStore.enqueueNotification('error', 'Session context is missing. Please sign in again.');
-      announce('Session context is missing. Please sign in again.', 'assertive');
-      return;
-    }
-
     this.isDeleting = true;
     trackAction('contact_delete', {
       status: 'start',
@@ -107,12 +102,11 @@ export class ContactDetailController {
     announce('Deleting contact.');
 
     try {
-      await deleteContact(
-        tenantState.tenantId,
-        authState.accessToken,
-        contactId,
-        createCorrelationId()
-      );
+      const context = authStore.getRequestContext();
+      await contactsService.delete({
+        context,
+        id: contactId,
+      });
       uiStore.enqueueNotification('success', 'Contact deleted.');
       trackAction('contact_delete', {
         status: 'success',
@@ -121,21 +115,24 @@ export class ContactDetailController {
       announce('Contact deleted.');
       await goto('/dashboard/contacts');
     } catch (error) {
-      const message = isRequestError(error) ? error.appError.message : 'Unable to delete contact.';
-      const correlationId = isRequestError(error) ? error.appError.correlationId ?? '' : '';
-      uiStore.enqueueNotification('error', message, { correlationId });
+      const presented = presentError(error, {
+        fallbackMessage: 'Unable to delete contact.',
+      });
+      uiStore.enqueueNotification('error', presented.message, {
+        correlationId: presented.correlationId,
+      });
       trackAction('contact_delete', {
         status: 'failure',
-        message,
-        correlationId,
+        message: presented.message,
+        correlationId: presented.correlationId,
         details: { contactId },
       });
       trackError('contact_delete_failure', {
-        message,
-        details: isRequestError(error) ? error.appError.details : [],
-        correlationId,
+        message: presented.message,
+        details: presented.details,
+        correlationId: presented.correlationId,
       });
-      announce(message, 'assertive');
+      announce(presented.message, 'assertive');
     } finally {
       this.isDeleting = false;
     }
@@ -154,27 +151,12 @@ export class ContactDetailController {
       correlationId: '',
     };
 
-    const authState = get(authStore);
-    const tenantState = get(tenantStore);
-
-    if (!authState.accessToken || !tenantState.tenantId) {
-      this.state = 'error';
-      this.error = {
-        message: 'Session context is missing. Please sign in again.',
-        details: [],
-        correlationId: '',
-      };
-      announce('Session context is missing. Please sign in again.', 'assertive');
-      return;
-    }
-
     try {
-      this.contact = await getContact(
-        tenantState.tenantId,
-        authState.accessToken,
-        contactId,
-        createCorrelationId()
-      );
+      const context = authStore.getRequestContext();
+      this.contact = await contactsQueryHandler.get({
+        context,
+        id: contactId,
+      });
       this.state = 'ready';
       trackAction('contact_detail_load', {
         status: 'success',
@@ -183,19 +165,7 @@ export class ContactDetailController {
       announce('Contact loaded.');
     } catch (error) {
       this.state = 'error';
-      if (isRequestError(error)) {
-        this.error = {
-          message: error.appError.message,
-          details: error.appError.details,
-          correlationId: error.appError.correlationId ?? '',
-        };
-      } else {
-        this.error = {
-          message: error instanceof Error ? error.message : 'Unable to load contact.',
-          details: [],
-          correlationId: '',
-        };
-      }
+      this.error = toContactErrorView(error, 'Unable to load contact.');
 
       trackAction('contact_detail_load', {
         status: 'failure',

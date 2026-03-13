@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ContactCreateRequest } from '$lib/api/contacts';
   import ContactForm from '$lib/components/contacts/ContactForm.svelte';
-  import ErrorDetailsPanel from '$lib/components/contacts/ErrorDetailsPanel.svelte';
+  import Alert from '$lib/components/ui/Alert.svelte';
   import { ContactCreateController } from './contact-create.controller.svelte';
 
   const controller = new ContactCreateController();
@@ -14,11 +14,13 @@
   </header>
 
   {#if controller.error.message}
-    <ErrorDetailsPanel
+    <Alert
       title="Unable to create contact"
       message={controller.error.message}
       details={controller.error.details}
       correlationId={controller.error.correlationId}
+      tone="danger"
+      role="alert"
     />
   {/if}
 

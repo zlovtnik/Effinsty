@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { axe } from 'vitest-axe';
 import { readable } from 'svelte/store';
+import { contactsService } from '$lib/services/contacts/contacts.service';
 import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
-import { getContact } from '$lib/api/contacts';
 import DetailPage from '../+page.svelte';
 
 vi.mock('$app/stores', () => ({
@@ -25,9 +25,14 @@ vi.mock('$app/navigation', () => ({
   goto: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('$lib/api/contacts', () => ({
-  getContact: vi.fn(),
-  deleteContact: vi.fn(),
+vi.mock('$lib/services/contacts/contacts.service', () => ({
+  contactsService: {
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
 describe('contact detail page a11y', () => {
@@ -37,7 +42,7 @@ describe('contact detail page a11y', () => {
     sessionStore.reset();
     authStore.setSession('access-token', TEST_SESSION_EXPIRY);
     tenantStore.resolveTenant('tenant-a');
-    vi.mocked(getContact).mockResolvedValue({
+    vi.mocked(contactsService.get).mockResolvedValue({
       id: '11111111-1111-1111-1111-111111111111',
       firstName: 'Ada',
       lastName: 'Lovelace',

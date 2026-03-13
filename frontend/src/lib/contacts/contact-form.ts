@@ -3,15 +3,18 @@ import type {
   ContactResponse,
   ContactUpdateRequest,
 } from '$lib/api/contacts';
-
-const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+import { IdGenerator } from '$lib/infrastructure/crypto/id-generator';
+import {
+  isValidEmail,
+  isValidPhone,
+  normalizeEmail,
+  normalizeOptional,
+  normalizePhone,
+  normalizeTrimmed,
+} from '$lib/services/validation/validators';
 
 function createId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
+  return IdGenerator.uuid();
 }
 
 export type ContactFormMode = 'create' | 'edit';
@@ -62,29 +65,6 @@ function emptyFieldErrors(): ContactFieldErrors {
   };
 }
 
-function trimOrEmpty(value: string): string {
-  return value.trim();
-}
-
-function normalizeEmail(value: string): string | undefined {
-  const normalized = trimOrEmpty(value).toLowerCase();
-  return normalized ? normalized : undefined;
-}
-
-function normalizePhone(value: string): string | undefined {
-  const digits = value
-    .split('')
-    .filter((char) => /\d/.test(char))
-    .join('');
-
-  return digits ? digits : undefined;
-}
-
-function normalizeAddress(value: string): string | undefined {
-  const normalized = trimOrEmpty(value);
-  return normalized ? normalized : undefined;
-}
-
 function metadataRowsToPayload(
   rows: MetadataRow[],
   metadataErrors: Record<string, MetadataRowErrors>
@@ -96,8 +76,8 @@ function metadataRowsToPayload(
       continue;
     }
 
-    const key = trimOrEmpty(row.key);
-    const value = trimOrEmpty(row.value);
+    const key = normalizeTrimmed(row.key);
+    const value = normalizeTrimmed(row.value);
 
     if (!key || !value) {
       continue;
@@ -149,11 +129,11 @@ export function validateContactForm(data: ContactFormData): ContactFormValidatio
   const fieldErrors = emptyFieldErrors();
   const metadataErrors: Record<string, MetadataRowErrors> = {};
 
-  const firstName = trimOrEmpty(data.firstName);
-  const lastName = trimOrEmpty(data.lastName);
+  const firstName = normalizeTrimmed(data.firstName);
+  const lastName = normalizeTrimmed(data.lastName);
   const email = normalizeEmail(data.email);
   const phone = normalizePhone(data.phone);
-  const address = normalizeAddress(data.address);
+  const address = normalizeOptional(data.address);
 
   if (!firstName) {
     fieldErrors.firstName = 'First name is required.';
@@ -163,19 +143,19 @@ export function validateContactForm(data: ContactFormData): ContactFormValidatio
     fieldErrors.lastName = 'Last name is required.';
   }
 
-  if (email && !EMAIL_REGEX.test(email)) {
+  if (email && !isValidEmail(email)) {
     fieldErrors.email = 'Email format is invalid.';
   }
 
-  if (phone && (phone.length < 10 || phone.length > 15)) {
+  if (phone && !isValidPhone(phone)) {
     fieldErrors.phone = 'Phone number must contain 10 to 15 digits.';
   }
 
   const duplicateBuckets = new Map<string, string[]>();
 
   for (const row of data.metadataRows) {
-    const key = trimOrEmpty(row.key);
-    const value = trimOrEmpty(row.value);
+    const key = normalizeTrimmed(row.key);
+    const value = normalizeTrimmed(row.value);
 
     if (!key && !value) {
       continue;

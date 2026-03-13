@@ -2,20 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { RequestError } from '$lib/api/errors';
+import { contactsService } from '$lib/services/contacts/contacts.service';
 import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 
 vi.mock('$app/navigation', () => ({
   goto: vi.fn().mockResolvedValue(undefined),
 }));
-
-vi.mock('$lib/api/contacts', () => ({
-  createContact: vi.fn(),
-}));
-
-import { createContact } from '$lib/api/contacts';
 import { ContactCreateController } from './contact-create.controller.svelte';
 
-const createContactMock = vi.mocked(createContact);
+const createContactMock = vi.spyOn(contactsService, 'create');
 
 describe('ContactCreateController', () => {
   beforeEach(() => {
@@ -45,6 +40,13 @@ describe('ContactCreateController', () => {
       lastName: 'Lovelace',
     });
 
+    expect(createContactMock).toHaveBeenCalledWith({
+      context: { tenantId: 'tenant-a', accessToken: 'access-token' },
+      payload: {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      },
+    });
     expect(controller.error).toEqual({
       message: 'Contact is invalid.',
       details: ['Email is required.'],

@@ -1,47 +1,18 @@
 import { goto } from '$app/navigation';
-import type { HTMLInputAttributes } from 'svelte/elements';
 import { get, type Unsubscriber } from 'svelte/store';
-import { login, type AuthTokens } from '$lib/api/auth';
-import { isRequestError } from '$lib/api/errors';
 import { extractReasonFromSearch, extractReturnToFromSearch } from '$lib/auth/navigation';
+import type {
+  FieldName,
+  LoginFieldConfig,
+  LoginLibraryItem,
+  LoginPrinciple,
+  State,
+} from '$lib/auth/login-view';
+import { presentError } from '$lib/services/error/error-presenter';
+import { validateLoginFields } from '$lib/services/validation/validators';
 import { authStore } from '$lib/stores/auth.store';
-import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { announce } from '$lib/utils/a11y';
-import { trackAction, trackError } from '$lib/utils/telemetry';
-
-export type State = 'idle' | 'loading' | 'success' | 'error';
-export type FieldName = 'tenantId' | 'username' | 'password';
-
-export interface LoginLibraryItem {
-  name: string;
-  href: string;
-  summary: string;
-}
-
-export type LoginPrinciple = string;
-
-export interface LoginFieldConfig {
-  key: FieldName;
-  id: string;
-  name: string;
-  label: string;
-  type: 'text' | 'password';
-  autocomplete: HTMLInputAttributes['autocomplete'];
-}
-
-export interface LoginFieldView extends LoginFieldConfig {
-  value: string;
-  error: string;
-  errorId: string;
-  delayIndex: number;
-}
-
-export interface LoginAlertView {
-  message: string;
-  details: string[];
-  correlationId: string;
-}
 
 interface LoginFailureState {
   message: string;
@@ -70,14 +41,6 @@ function emptyFieldErrors(): FieldErrors {
     username: '',
     password: '',
   };
-}
-
-function createCorrelationId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
 export class LoginController {
@@ -200,21 +163,18 @@ export class LoginController {
 
     const safeTenantId = this.tenantId.trim();
     const safeUsername = this.username.trim();
-    const requestCorrelationId = createCorrelationId();
 
-    this.beginLoginAttempt(safeTenantId);
+    this.beginLoginAttempt();
 
     try {
-      const tokens = await login(
-        safeTenantId,
-        { username: safeUsername, password: this.password },
-        requestCorrelationId
-      );
-
-      this.completeLogin(safeTenantId, tokens);
+      await authStore.login(safeTenantId, {
+        username: safeUsername,
+        password: this.password,
+      });
+      this.completeLogin();
       await goto(this.returnToPath);
     } catch (error) {
-      this.failLogin(error, safeTenantId, requestCorrelationId);
+      this.failLogin(error);
     }
   }
 
@@ -230,32 +190,19 @@ export class LoginController {
     this.transitionTo('idle');
   }
 
-  private beginLoginAttempt(tenantId: string): void {
+  private beginLoginAttempt(): void {
     this.transitionTo('loading');
     this.routeMessage = '';
-    authStore.startLogin();
-    tenantStore.setTenant(tenantId);
-    trackAction('login', {
-      status: 'start',
-      details: { tenantId },
-    });
   }
 
-  private completeLogin(tenantId: string, tokens: AuthTokens): void {
+  private completeLogin(): void {
     this.transitionTo('success');
-    tenantStore.resolveTenant(tenantId);
-    authStore.completeLogin(tokens);
-    sessionStore.setRefreshToken(tokens.refreshToken);
-    trackAction('login', {
-      status: 'success',
-      details: { tenantId },
-    });
     this.liveMessage = 'Signed in successfully. Redirecting to dashboard.';
     announce(this.liveMessage);
   }
 
-  private failLogin(error: unknown, tenantId: string, requestCorrelationId: string): void {
-    const failure = this.toLoginFailureState(error, requestCorrelationId);
+  private failLogin(error: unknown): void {
+    const failure = this.toLoginFailureState(error);
 
     this.formError = failure.message;
     this.formDetails = failure.details;
@@ -263,39 +210,18 @@ export class LoginController {
     this.liveMessage = failure.message;
     this.alertKey += 1;
     this.transitionTo('error');
-
-    authStore.failLogin(failure.message);
-    sessionStore.clear();
-
-    if (isRequestError(error) && error.appError.kind === 'forbidden') {
-      tenantStore.invalidateTenant(failure.message, tenantId);
-    } else {
-      tenantStore.setError(failure.message);
-    }
-
-    trackAction('login', {
-      status: 'failure',
-      message: failure.message,
-      correlationId: failure.correlationId,
-      details: { tenantId },
-    });
-    trackError('login_failure', {
-      message: failure.message,
-      details: failure.details,
-      correlationId: failure.correlationId,
-    });
     announce(failure.message, 'assertive');
   }
 
   private validateForm(): boolean {
-    const nextErrors = emptyFieldErrors();
+    const result = validateLoginFields({
+      tenantId: this.tenantId,
+      username: this.username,
+      password: this.password,
+    });
 
-    if (!this.tenantId.trim()) nextErrors.tenantId = 'Tenant ID is required.';
-    if (!this.username.trim()) nextErrors.username = 'Username is required.';
-    if (!this.password.trim()) nextErrors.password = 'Password is required.';
-
-    this.fieldErrors = nextErrors;
-    return !Object.values(nextErrors).some(Boolean);
+    this.fieldErrors = result.fieldErrors;
+    return result.isValid;
   }
 
   private applyValidationFailure(): void {
@@ -318,20 +244,10 @@ export class LoginController {
     return this.password;
   }
 
-  private toLoginFailureState(error: unknown, fallbackCorrelationId: string): LoginFailureState {
-    let message = 'Unable to sign in.';
-    let details: string[] = [];
-    let correlationId = fallbackCorrelationId;
-
-    if (isRequestError(error)) {
-      message = error.appError.message;
-      details = error.appError.details;
-      correlationId = error.appError.correlationId || fallbackCorrelationId;
-    } else if (error instanceof Error && error.message) {
-      message = error.message;
-    }
-
-    return { message, details, correlationId };
+  private toLoginFailureState(error: unknown): LoginFailureState {
+    return presentError(error, {
+      fallbackMessage: 'Unable to sign in.',
+    });
   }
 
   private hydrateRouteContext(): void {

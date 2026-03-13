@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { HTMLInputAttributes } from 'svelte/elements';
 
-  interface Props extends Omit<HTMLInputAttributes, 'size' | 'class'> {
+  interface Props extends Omit<HTMLInputAttributes, 'size' | 'class' | 'aria-describedby'> {
     error?: boolean;
     className?: string;
     describedBy?: string;
@@ -17,7 +17,7 @@
     disabled = false,
     readonly = false,
     error = false,
-    className,
+    className = '',
     describedBy,
     ...attrs
   }: Props = $props();

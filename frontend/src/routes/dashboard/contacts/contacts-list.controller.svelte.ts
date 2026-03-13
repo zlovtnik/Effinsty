@@ -1,21 +1,14 @@
 import { goto } from '$app/navigation';
-import { deleteContact, listContacts, type ContactResponse } from '$lib/api/contacts';
-import { isRequestError } from '$lib/api/errors';
+import type { ContactResponse } from '$lib/api/contacts';
 import { announce } from '$lib/utils/a11y';
+import { contactsQueryHandler } from '$lib/services/contacts/contacts-query-handler';
+import { presentError } from '$lib/services/error/error-presenter';
+import { contactsService } from '$lib/services/contacts/contacts.service';
+import { clampPositiveInt } from '$lib/services/validation/validators';
 import { authStore } from '$lib/stores/auth.store';
-import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
 import { filterAndSortContacts, type ContactsSortKey } from '$lib/contacts/listing';
 import { trackAction, trackError } from '$lib/utils/telemetry';
-import { get } from 'svelte/store';
-
-function createCorrelationId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-}
 
 function parsePositiveInt(value: string | null, fallback: number): number {
   if (!value) {
@@ -27,7 +20,7 @@ function parsePositiveInt(value: string | null, fallback: number): number {
     return fallback;
   }
 
-  return parsed;
+  return clampPositiveInt(parsed, fallback);
 }
 
 function readPagingFromUrl(): { page: number; pageSize: number } {
@@ -46,6 +39,18 @@ interface ContactsErrorView {
   message: string;
   details: string[];
   correlationId: string;
+}
+
+function toContactsErrorView(
+  error: unknown,
+  fallbackMessage: string
+): ContactsErrorView {
+  const presented = presentError(error, { fallbackMessage });
+  return {
+    message: presented.message,
+    details: presented.details,
+    correlationId: presented.correlationId,
+  };
 }
 
 export type ContactsListState = 'loading' | 'ready' | 'empty' | 'error';
@@ -140,26 +145,16 @@ export class ContactsListController {
 
     announce('Delete contact request submitted.');
 
-    const authState = get(authStore);
-    const tenantState = get(tenantStore);
-
-    if (!authState.accessToken || !tenantState.tenantId) {
-      uiStore.enqueueNotification('error', 'Session context is missing. Please sign in again.');
-      announce('Session context is missing. Please sign in again.', 'assertive');
-      return;
-    }
-
     try {
+      const context = authStore.getRequestContext();
       trackAction('contact_delete', {
         status: 'start',
         details: { contactId: contact.id },
       });
-      await deleteContact(
-        tenantState.tenantId,
-        authState.accessToken,
-        contact.id,
-        createCorrelationId()
-      );
+      await contactsService.delete({
+        context,
+        id: contact.id,
+      });
       uiStore.enqueueNotification('success', 'Contact deleted.');
       trackAction('contact_delete', {
         status: 'success',
@@ -168,21 +163,24 @@ export class ContactsListController {
       announce('Contact deleted.');
       await this.loadContacts();
     } catch (error) {
-      const message = isRequestError(error) ? error.appError.message : 'Unable to delete contact.';
-      const correlationId = isRequestError(error) ? error.appError.correlationId ?? '' : '';
-      uiStore.enqueueNotification('error', message, { correlationId });
+      const presented = presentError(error, {
+        fallbackMessage: 'Unable to delete contact.',
+      });
+      uiStore.enqueueNotification('error', presented.message, {
+        correlationId: presented.correlationId,
+      });
       trackAction('contact_delete', {
         status: 'failure',
-        message,
-        correlationId,
+        message: presented.message,
+        correlationId: presented.correlationId,
         details: { contactId: contact.id },
       });
       trackError('contact_delete_failure', {
-        message,
-        correlationId,
-        details: isRequestError(error) ? error.appError.details : [],
+        message: presented.message,
+        correlationId: presented.correlationId,
+        details: presented.details,
       });
-      announce(message, 'assertive');
+      announce(presented.message, 'assertive');
     }
   }
 
@@ -208,29 +206,13 @@ export class ContactsListController {
       correlationId: '',
     };
 
-    const authState = get(authStore);
-    const tenantState = get(tenantStore);
-
-    if (!authState.accessToken || !tenantState.tenantId) {
-      this.state = 'error';
-      this.error = {
-        message: 'Session context is missing. Please sign in again.',
-        details: [],
-        correlationId: '',
-      };
-      announce('Session context is missing. Please sign in again.', 'assertive');
-      this.isBusy = false;
-      return;
-    }
-
     try {
-      const response = await listContacts(
-        tenantState.tenantId,
-        authState.accessToken,
-        this.page,
-        this.pageSize,
-        createCorrelationId()
-      );
+      const context = authStore.getRequestContext();
+      const response = await contactsQueryHandler.list({
+        context,
+        page: this.page,
+        pageSize: this.pageSize,
+      });
 
       this.contacts = response.items;
       this.totalCount = response.totalCount;
@@ -253,20 +235,7 @@ export class ContactsListController {
       );
     } catch (error) {
       this.state = 'error';
-
-      if (isRequestError(error)) {
-        this.error = {
-          message: error.appError.message,
-          details: error.appError.details,
-          correlationId: error.appError.correlationId ?? '',
-        };
-      } else {
-        this.error = {
-          message: error instanceof Error ? error.message : 'Unable to load contacts.',
-          details: [],
-          correlationId: '',
-        };
-      }
+      this.error = toContactsErrorView(error, 'Unable to load contacts.');
       trackAction('contacts_list_load', {
         status: 'failure',
         message: this.error.message,

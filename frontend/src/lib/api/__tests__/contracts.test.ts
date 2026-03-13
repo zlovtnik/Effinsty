@@ -50,7 +50,15 @@ describe('frontend contract locks', () => {
       )
     );
 
-    const response = await listContacts('tenant-a', 'token-123', 1, 20, 'corr-contacts');
+    const response = await listContacts({
+      context: {
+        tenantId: 'tenant-a',
+        accessToken: 'token-123',
+      },
+      page: 1,
+      pageSize: 20,
+      correlationId: 'corr-contacts',
+    });
 
     expect(Object.keys(response).sort()).toEqual(['items', 'page', 'pageSize', 'totalCount']);
     expect('PageSize' in response).toBe(false);

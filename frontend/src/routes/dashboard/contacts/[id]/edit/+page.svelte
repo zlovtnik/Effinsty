@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
   import type { ContactUpdateRequest } from '$lib/api/contacts';
   import ContactForm from '$lib/components/contacts/ContactForm.svelte';
-  import ErrorDetailsPanel from '$lib/components/contacts/ErrorDetailsPanel.svelte';
+  import Alert from '$lib/components/ui/Alert.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Skeleton from '$lib/components/ui/Skeleton.svelte';
   import { ContactEditController } from './contact-edit.controller.svelte';
@@ -33,21 +33,25 @@
     </div>
   {:else if controller.state === 'error'}
     <div class="state-stack">
-      <ErrorDetailsPanel
+      <Alert
         title="Unable to load contact"
         message={controller.error.message}
         details={controller.error.details}
         correlationId={controller.error.correlationId}
+        tone="danger"
+        role="alert"
       />
       <Button type="button" variant="secondary" onclick={() => void controller.retry(contactId)}>Retry</Button>
     </div>
   {:else if controller.formData}
     {#if controller.error.message}
-      <ErrorDetailsPanel
+      <Alert
         title="Unable to save contact"
         message={controller.error.message}
         details={controller.error.details}
         correlationId={controller.error.correlationId}
+        tone="danger"
+        role="alert"
       />
     {/if}
 

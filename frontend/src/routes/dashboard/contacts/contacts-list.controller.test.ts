@@ -1,23 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { contactsQueryHandler } from '$lib/services/contacts/contacts-query-handler';
 import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
+import { contactsService } from '$lib/services/contacts/contacts.service';
 import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 
 vi.mock('$app/navigation', () => ({
   goto: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('$lib/api/contacts', () => ({
-  listContacts: vi.fn(),
-  deleteContact: vi.fn(),
-}));
-
-import { listContacts, deleteContact } from '$lib/api/contacts';
 import { ContactsListController } from './contacts-list.controller.svelte';
 
-const listContactsMock = vi.mocked(listContacts);
-const deleteContactMock = vi.mocked(deleteContact);
+const listContactsMock = vi.spyOn(contactsQueryHandler, 'list');
+const deleteContactMock = vi.spyOn(contactsService, 'delete');
 
 describe('ContactsListController delete flow', () => {
   beforeEach(() => {
@@ -70,7 +66,10 @@ describe('ContactsListController delete flow', () => {
     uiStore.resolveConfirmation(true);
     await promise;
 
-    expect(deleteContactMock).toHaveBeenCalledTimes(1);
+    expect(deleteContactMock).toHaveBeenCalledWith({
+      context: { tenantId: 'tenant-a', accessToken: 'access-token' },
+      id: '11111111-1111-1111-1111-111111111111',
+    });
     expect(listContactsMock).toHaveBeenCalledTimes(2);
   });
 
