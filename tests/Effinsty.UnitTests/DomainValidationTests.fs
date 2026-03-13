@@ -28,3 +28,22 @@ let ``validateTenantSchema rejects invalid schema`` () =
     | Ok _ -> Assert.Fail("Schema should be rejected")
     | Error (ValidationError details) -> Assert.Contains("Tenant schema must match", details.Head)
     | Error _ -> Assert.Fail("Expected validation error")
+
+[<Fact>]
+let ``validateContactDraft ignores null and blank metadata values`` () =
+    let metadata =
+        Map.ofList [
+            "tier", null
+            "team", "   "
+            " region ", " us-east "
+            "   ", "value"
+        ]
+
+    let result = Validation.validateContactDraft "Ada" "Lovelace" None None None metadata
+
+    match result with
+    | Error _ -> Assert.Fail("Validation should succeed")
+    | Ok draft ->
+        Assert.Equal(1, draft.Metadata.Count)
+        Assert.True(draft.Metadata.ContainsKey("region"))
+        Assert.Equal("us-east", draft.Metadata["region"])

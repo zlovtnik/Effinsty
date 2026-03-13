@@ -49,7 +49,32 @@ module Program =
 
     let private isHealthPath (path: PathString) =
         path.StartsWithSegments(PathString("/api/health"), StringComparison.OrdinalIgnoreCase)
-        || path.StartsWithSegments(PathString("/api/health/oracle"), StringComparison.OrdinalIgnoreCase)
+
+    let resolveWalletLocationWithLegacySupport (configuration: IConfiguration) (configuredWalletLocation: string option) =
+        let configured =
+            configuredWalletLocation
+            |> Option.bind (fun value -> if String.IsNullOrWhiteSpace(value) then None else Some value)
+
+        match configured with
+        | Some value -> Some value, false
+        | None ->
+            let configuredFromKeys = resolveConfigValue configuration [ "Oracle:WalletLocation"; "WalletLocation" ] []
+
+            match configuredFromKeys with
+            | Some value -> Some value, false
+            | None ->
+                let preferred = firstNonEmpty [ Environment.GetEnvironmentVariable("ORACLE_WALLET_PATH") ]
+
+                match preferred with
+                | Some value -> Some value, false
+                | None ->
+                    let legacy = firstNonEmpty [ Environment.GetEnvironmentVariable("ORACLE_WALLET_LOCATION") ]
+
+                    match legacy with
+                    | Some value -> Some value, true
+                    | None ->
+                        let fallback = firstNonEmpty [ Environment.GetEnvironmentVariable("WALLET_LOCATION") ]
+                        fallback, false
 
     let private setCorrelationIdMiddleware (next: RequestDelegate) (ctx: HttpContext) =
         task {
@@ -180,10 +205,8 @@ module Program =
         let configuredTnsAdmin = if obj.ReferenceEquals(oracleOptions, null) then None else firstNonEmpty [ oracleOptions.TnsAdmin ]
         let configuredDataSource = if obj.ReferenceEquals(oracleOptions, null) then None else firstNonEmpty [ oracleOptions.DataSource ]
 
-        let walletLocation =
-            configuredWalletLocation
-            |> Option.orElseWith (fun () ->
-                resolveConfigValue builder.Configuration [ "Oracle:WalletLocation"; "WalletLocation" ] [ "ORACLE_WALLET_PATH"; "WALLET_LOCATION" ])
+        let walletLocation, usedLegacyWalletEnv =
+            resolveWalletLocationWithLegacySupport builder.Configuration configuredWalletLocation
 
         let tnsAdmin =
             configuredTnsAdmin
@@ -243,6 +266,13 @@ module Program =
         builder.Services.AddAuthorization() |> ignore
 
         let app = builder.Build()
+
+        if usedLegacyWalletEnv then
+            let logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Effinsty.Api.Startup")
+
+            logger.LogWarning(
+                "Environment variable ORACLE_WALLET_LOCATION is deprecated and will be removed in a future release. Use ORACLE_WALLET_PATH instead."
+            )
 
         app.Use(fun next -> RequestDelegate(fun ctx -> errorHandlingMiddleware next ctx)) |> ignore
         app.Use(fun next -> RequestDelegate(fun ctx -> setCorrelationIdMiddleware next ctx)) |> ignore

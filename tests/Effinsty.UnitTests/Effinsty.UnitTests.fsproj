@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ApiHandlerPayloadValidationTests.fs" />
     <Compile Include="DomainValidationTests.fs" />
     <Compile Include="ServicePipelineTests.fs" />
     <Compile Include="ErrorHttpTests.fs" />

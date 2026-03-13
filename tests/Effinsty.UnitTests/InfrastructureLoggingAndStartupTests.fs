@@ -5,9 +5,11 @@ open System.Collections.Generic
 open System.Data
 open System.Threading
 open System.Threading.Tasks
+open Effinsty.Api
 open Effinsty.Application
 open Effinsty.Domain
 open Effinsty.Infrastructure
+open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
@@ -69,6 +71,15 @@ type private CapturingLogger() =
                 }
             )
 
+let private withEnvironmentVariable name value action =
+    let original = Environment.GetEnvironmentVariable(name)
+
+    try
+        Environment.SetEnvironmentVariable(name, value)
+        action ()
+    finally
+        Environment.SetEnvironmentVariable(name, original)
+
 [<Fact>]
 let ``db startup validation stops host and throws when tenant schema is invalid`` () =
     task {
@@ -129,3 +140,41 @@ let ``db logging query wrapper logs structured fields without parameter values``
         Assert.Equal("corr-123", entry.State["CorrelationId"])
         Assert.DoesNotContain(secretParameterValue, entry.State.Values)
     }
+
+[<Fact>]
+let ``wallet resolution uses deprecated ORACLE_WALLET_LOCATION when preferred env var is absent`` () =
+    withEnvironmentVariable
+        "ORACLE_WALLET_PATH"
+        null
+        (fun () ->
+            withEnvironmentVariable
+                "ORACLE_WALLET_LOCATION"
+                "/legacy/wallet"
+                (fun () ->
+                    withEnvironmentVariable
+                        "WALLET_LOCATION"
+                        null
+                        (fun () ->
+                            let configuration = ConfigurationBuilder().Build()
+                            let walletLocation, usedLegacy = Program.resolveWalletLocationWithLegacySupport configuration None
+                            Assert.Equal(Some "/legacy/wallet", walletLocation)
+                            Assert.True(usedLegacy))))
+
+[<Fact>]
+let ``wallet resolution prefers ORACLE_WALLET_PATH over legacy ORACLE_WALLET_LOCATION`` () =
+    withEnvironmentVariable
+        "ORACLE_WALLET_PATH"
+        "/preferred/wallet"
+        (fun () ->
+            withEnvironmentVariable
+                "ORACLE_WALLET_LOCATION"
+                "/legacy/wallet"
+                (fun () ->
+                    withEnvironmentVariable
+                        "WALLET_LOCATION"
+                        "/fallback/wallet"
+                        (fun () ->
+                            let configuration = ConfigurationBuilder().Build()
+                            let walletLocation, usedLegacy = Program.resolveWalletLocationWithLegacySupport configuration None
+                            Assert.Equal(Some "/preferred/wallet", walletLocation)
+                            Assert.False(usedLegacy))))

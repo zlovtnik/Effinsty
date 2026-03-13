@@ -108,8 +108,17 @@ module Validation =
             metadata
             |> Map.toList
             |> List.choose (fun (key, value) ->
-                let cleanKey = key.Trim()
-                let cleanValue = value.Trim()
+                let cleanKey =
+                    key
+                    |> Option.ofObj
+                    |> Option.map (fun item -> item.Trim())
+                    |> Option.defaultValue String.Empty
+
+                let cleanValue =
+                    value
+                    |> Option.ofObj
+                    |> Option.map (fun item -> item.Trim())
+                    |> Option.defaultValue String.Empty
 
                 if String.IsNullOrWhiteSpace(cleanKey) || String.IsNullOrWhiteSpace(cleanValue) then
                     None

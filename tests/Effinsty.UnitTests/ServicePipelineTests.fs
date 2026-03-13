@@ -1,6 +1,8 @@
 module ServicePipelineTests
 
 open System
+open System.Security.Cryptography
+open System.Text
 open System.Threading
 open System.Threading.Tasks
 open Effinsty.Application
@@ -74,6 +76,10 @@ let private tenant =
         DataSourceAlias = "mydb_high"
     }
 
+let private hashRefreshToken (token: string) =
+    use sha256 = SHA256.Create()
+    token |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> Convert.ToHexString
+
 [<Fact>]
 let ``contact create returns conflict when duplicate email exists`` () =
     task {
@@ -146,7 +152,7 @@ let ``auth refresh rejects inactive user and revokes session`` () =
                 SessionId = sessionId
                 UserId = userId
                 TenantId = tenant.TenantId
-                RefreshToken = refreshToken
+                RefreshTokenHash = hashRefreshToken refreshToken
                 ExpiresAt = now.AddMinutes(10)
             }
 
@@ -278,7 +284,7 @@ let ``auth refresh retries old session deletion and succeeds`` () =
                 SessionId = oldSessionId
                 UserId = userId
                 TenantId = tenant.TenantId
-                RefreshToken = incomingRefreshToken
+                RefreshTokenHash = hashRefreshToken incomingRefreshToken
                 ExpiresAt = now.AddMinutes(10)
             }
 
@@ -355,7 +361,7 @@ let ``auth refresh revokes new session when old session deletion keeps failing``
                 SessionId = oldSessionId
                 UserId = userId
                 TenantId = tenant.TenantId
-                RefreshToken = incomingRefreshToken
+                RefreshTokenHash = hashRefreshToken incomingRefreshToken
                 ExpiresAt = now.AddMinutes(10)
             }
 

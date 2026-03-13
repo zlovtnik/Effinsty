@@ -28,6 +28,18 @@ module private HandlerHelpers =
         | None, _ -> Error(ValidationError [ "Tenant context is missing." ])
         | _, None -> Error(Unauthorized "Authenticated user id is missing.")
 
+    let tryBindJson<'T> (ctx: HttpContext) (errorMessage: string) =
+        task {
+            try
+                let! parsed = ctx.BindJsonAsync<'T>()
+                return Ok parsed
+            with
+            | :? JsonException
+            | :? InvalidOperationException
+            | :? BadHttpRequestException ->
+                return Error(ValidationError [ errorMessage ])
+        }
+
     let errorToResponse (ctx: HttpContext) (error: AppError) =
         let correlationId = tryGetCorrelationId ctx |> Option.defaultValue String.Empty
 
@@ -60,21 +72,13 @@ module AuthHandlers =
     let login: HttpHandler =
         fun next ctx ->
             task {
-                let service = ctx.RequestServices.GetRequiredService<IAuthService>()
-                let! requestResult =
-                    task {
-                        try
-                            let! parsed = ctx.BindJsonAsync<LoginRequest>()
-                            return Ok parsed
-                        with
-                        | :? JsonException
-                        | :? InvalidOperationException ->
-                            return Error(ValidationError [ "Invalid login payload." ])
-                    }
+                let! requestResult = HandlerHelpers.tryBindJson<LoginRequest> ctx "Invalid login payload."
 
                 match requestResult with
                 | Error error -> return! HandlerHelpers.errorToResponse ctx error next ctx
                 | Ok request ->
+                    let service = ctx.RequestServices.GetRequiredService<IAuthService>()
+
                     match tryGetTenantContext ctx with
                     | None ->
                         let error = ValidationError [ "Tenant context is missing." ]
@@ -98,43 +102,51 @@ module AuthHandlers =
     let refresh: HttpHandler =
         fun next ctx ->
             task {
-                let service = ctx.RequestServices.GetRequiredService<IAuthService>()
-                let! request = ctx.BindJsonAsync<RefreshRequest>()
+                let! requestResult = HandlerHelpers.tryBindJson<RefreshRequest> ctx "Invalid refresh payload."
 
-                match tryGetTenantContext ctx with
-                | None ->
-                    let error = ValidationError [ "Tenant context is missing." ]
-                    return! HandlerHelpers.errorToResponse ctx error next ctx
-                | Some tenant ->
-                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
-                    let command = { RefreshToken = request.RefreshToken }
-                    let! result = service.RefreshAsync(tenant, correlationId, command, ctx.RequestAborted)
+                match requestResult with
+                | Error error -> return! HandlerHelpers.errorToResponse ctx error next ctx
+                | Ok request ->
+                    let service = ctx.RequestServices.GetRequiredService<IAuthService>()
 
-                    return!
-                        HandlerHelpers.fromResult result (Mapping.toLoginResponse >> json)
-                            next
-                            ctx
+                    match tryGetTenantContext ctx with
+                    | None ->
+                        let error = ValidationError [ "Tenant context is missing." ]
+                        return! HandlerHelpers.errorToResponse ctx error next ctx
+                    | Some tenant ->
+                        let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+                        let command = { RefreshToken = request.RefreshToken }
+                        let! result = service.RefreshAsync(tenant, correlationId, command, ctx.RequestAborted)
+
+                        return!
+                            HandlerHelpers.fromResult result (Mapping.toLoginResponse >> json)
+                                next
+                                ctx
             }
 
     let logout: HttpHandler =
         fun next ctx ->
             task {
-                let service = ctx.RequestServices.GetRequiredService<IAuthService>()
-                let! request = ctx.BindJsonAsync<RefreshRequest>()
+                let! requestResult = HandlerHelpers.tryBindJson<RefreshRequest> ctx "Invalid refresh payload."
 
-                match tryGetTenantContext ctx with
-                | None ->
-                    let error = ValidationError [ "Tenant context is missing." ]
-                    return! HandlerHelpers.errorToResponse ctx error next ctx
-                | Some tenant ->
-                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
-                    let command = { RefreshToken = request.RefreshToken }
-                    let! result = service.LogoutAsync(tenant, correlationId, command, ctx.RequestAborted)
+                match requestResult with
+                | Error error -> return! HandlerHelpers.errorToResponse ctx error next ctx
+                | Ok request ->
+                    let service = ctx.RequestServices.GetRequiredService<IAuthService>()
 
-                    return!
-                        HandlerHelpers.fromResult result (fun _ -> json {| success = true |})
-                            next
-                            ctx
+                    match tryGetTenantContext ctx with
+                    | None ->
+                        let error = ValidationError [ "Tenant context is missing." ]
+                        return! HandlerHelpers.errorToResponse ctx error next ctx
+                    | Some tenant ->
+                        let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+                        let command = { RefreshToken = request.RefreshToken }
+                        let! result = service.LogoutAsync(tenant, correlationId, command, ctx.RequestAborted)
+
+                        return!
+                            HandlerHelpers.fromResult result (fun _ -> json {| success = true |})
+                                next
+                                ctx
             }
 
 module ContactHandlers =
@@ -196,64 +208,72 @@ module ContactHandlers =
     let createContact: HttpHandler =
         fun next ctx ->
             task {
-                let service = ctx.RequestServices.GetRequiredService<IContactService>()
-                let! request = ctx.BindJsonAsync<ContactCreateRequest>()
+                let! requestResult = HandlerHelpers.tryBindJson<ContactCreateRequest> ctx "Invalid contact payload."
 
-                match HandlerHelpers.withTenantAndUser ctx with
-                | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
-                | Ok(tenant, userId) ->
-                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+                match requestResult with
+                | Error error -> return! HandlerHelpers.errorToResponse ctx error next ctx
+                | Ok request ->
+                    let service = ctx.RequestServices.GetRequiredService<IContactService>()
 
-                    let command = {
-                        UserId = userId
-                        FirstName = request.FirstName
-                        LastName = request.LastName
-                        Email = HandlerHelpers.stringToOption request.Email
-                        Phone = HandlerHelpers.stringToOption request.Phone
-                        Address = HandlerHelpers.stringToOption request.Address
-                        Metadata = HandlerHelpers.dictionaryToMap request.Metadata
-                    }
+                    match HandlerHelpers.withTenantAndUser ctx with
+                    | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
+                    | Ok(tenant, userId) ->
+                        let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
 
-                    let! result = service.CreateAsync(tenant, correlationId, command, ctx.RequestAborted)
+                        let command = {
+                            UserId = userId
+                            FirstName = request.FirstName
+                            LastName = request.LastName
+                            Email = HandlerHelpers.stringToOption request.Email
+                            Phone = HandlerHelpers.stringToOption request.Phone
+                            Address = HandlerHelpers.stringToOption request.Address
+                            Metadata = HandlerHelpers.dictionaryToMap request.Metadata
+                        }
 
-                    return!
-                        HandlerHelpers.fromResult result (Mapping.toContactResponse >> json)
-                            next
-                            ctx
+                        let! result = service.CreateAsync(tenant, correlationId, command, ctx.RequestAborted)
+
+                        return!
+                            HandlerHelpers.fromResult result (Mapping.toContactResponse >> json)
+                                next
+                                ctx
             }
 
     let updateContact (contactId: Guid): HttpHandler =
         fun next ctx ->
             task {
-                let service = ctx.RequestServices.GetRequiredService<IContactService>()
-                let! request = ctx.BindJsonAsync<ContactUpdateRequest>()
+                let! requestResult = HandlerHelpers.tryBindJson<ContactUpdateRequest> ctx "Invalid contact payload."
 
-                match HandlerHelpers.withTenantAndUser ctx with
-                | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
-                | Ok(tenant, userId) ->
-                    let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
+                match requestResult with
+                | Error error -> return! HandlerHelpers.errorToResponse ctx error next ctx
+                | Ok request ->
+                    let service = ctx.RequestServices.GetRequiredService<IContactService>()
 
-                    let command = {
-                        ContactId = ContactId contactId
-                        UserId = userId
-                        FirstName = HandlerHelpers.stringToOption request.FirstName
-                        LastName = HandlerHelpers.stringToOption request.LastName
-                        Email = HandlerHelpers.stringToOption request.Email
-                        Phone = HandlerHelpers.stringToOption request.Phone
-                        Address = HandlerHelpers.stringToOption request.Address
-                        Metadata =
-                            if isNull request.Metadata then
-                                None
-                            else
-                                Some(HandlerHelpers.dictionaryToMap request.Metadata)
-                    }
+                    match HandlerHelpers.withTenantAndUser ctx with
+                    | Error err -> return! HandlerHelpers.errorToResponse ctx err next ctx
+                    | Ok(tenant, userId) ->
+                        let correlationId = HandlerHelpers.correlationIdOrEmpty ctx
 
-                    let! result = service.UpdateAsync(tenant, correlationId, command, ctx.RequestAborted)
+                        let command = {
+                            ContactId = ContactId contactId
+                            UserId = userId
+                            FirstName = HandlerHelpers.stringToOption request.FirstName
+                            LastName = HandlerHelpers.stringToOption request.LastName
+                            Email = HandlerHelpers.stringToOption request.Email
+                            Phone = HandlerHelpers.stringToOption request.Phone
+                            Address = HandlerHelpers.stringToOption request.Address
+                            Metadata =
+                                if isNull request.Metadata then
+                                    None
+                                else
+                                    Some(HandlerHelpers.dictionaryToMap request.Metadata)
+                        }
 
-                    return!
-                        HandlerHelpers.fromResult result (Mapping.toContactResponse >> json)
-                            next
-                            ctx
+                        let! result = service.UpdateAsync(tenant, correlationId, command, ctx.RequestAborted)
+
+                        return!
+                            HandlerHelpers.fromResult result (Mapping.toContactResponse >> json)
+                                next
+                                ctx
             }
 
     let deleteContact (contactId: Guid): HttpHandler =
