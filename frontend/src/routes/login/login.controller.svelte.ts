@@ -243,9 +243,9 @@ export class LoginController {
 
   private completeLogin(tenantId: string, tokens: AuthTokens): void {
     this.transitionTo('success');
+    tenantStore.resolveTenant(tenantId);
     authStore.completeLogin(tokens);
     sessionStore.setRefreshToken(tokens.refreshToken);
-    tenantStore.resolveTenant(tenantId);
     trackAction('login', {
       status: 'success',
       details: { tenantId },

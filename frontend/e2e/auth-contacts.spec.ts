@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { TEST_SESSION_EXPIRY } from '../src/lib/test/auth-fixtures';
 
 test('login, list, create, edit, delete, and logout with mocked API flows', async ({ page }) => {
   let currentContact: {
@@ -36,7 +37,7 @@ test('login, list, create, edit, delete, and logout with mocked API flows', asyn
         body: JSON.stringify({
           accessToken: 'access-token',
           refreshToken: 'refresh-token',
-          expiresAt: '2026-03-13T12:00:00Z',
+          expiresAt: TEST_SESSION_EXPIRY,
         }),
       });
       return;
@@ -79,7 +80,6 @@ test('login, list, create, edit, delete, and logout with mocked API flows', asyn
     if (path === '/api/contacts' && request.method() === 'POST') {
       const payload = JSON.parse(request.postData() ?? '{}');
       currentContact = {
-        ...currentContact,
         id: 'contact-2',
         firstName: payload.firstName,
         lastName: payload.lastName,
@@ -87,6 +87,7 @@ test('login, list, create, edit, delete, and logout with mocked API flows', asyn
         phone: payload.phone ?? null,
         address: payload.address ?? null,
         metadata: payload.metadata ?? {},
+        createdAt: '2026-03-13T12:30:00Z',
         updatedAt: '2026-03-13T12:30:00Z',
       };
 

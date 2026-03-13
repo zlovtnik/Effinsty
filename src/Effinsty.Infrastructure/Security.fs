@@ -34,9 +34,9 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
         let configuredScopes =
             if not (obj.ReferenceEquals(config.TenantAccessScopes, null))
                && config.TenantAccessScopes.ContainsKey(tenantId) then
-                config.TenantAccessScopes.[tenantId] |> Seq.ofList
+                config.TenantAccessScopes.[tenantId] |> Seq.ofArray
             elif not (obj.ReferenceEquals(config.DefaultAccessScopes, null)) then
-                config.DefaultAccessScopes |> Seq.ofList
+                config.DefaultAccessScopes |> Seq.ofArray
             else
                 Seq.empty
 

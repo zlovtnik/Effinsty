@@ -2,9 +2,14 @@
   import { afterNavigate } from '$app/navigation';
   import { onMount } from 'svelte';
   import '../app.css';
-  import { trackPage, trackWebVital } from '$lib/utils/telemetry';
+  import { trackError, trackPage, trackWebVital } from '$lib/utils/telemetry';
+  import { registerWebVitals } from '$lib/utils/web-vitals';
 
   afterNavigate((navigation) => {
+    if (!navigation.from) {
+      return;
+    }
+
     trackPage('page_view', {
       navigation: 'navigate',
       title: typeof document === 'undefined' ? undefined : document.title,
@@ -24,27 +29,20 @@
       return;
     }
 
-    void import('web-vitals').then(({ onCLS, onFCP, onINP, onLCP, onTTFB }) => {
-      const reportMetric = (metric: {
-        name: string;
-        value: number;
-        delta: number;
-        rating: string;
-        id: string;
-      }) => {
-        trackWebVital(metric.name, {
-          value: metric.value,
-          delta: metric.delta,
-          rating: metric.rating,
-          metricId: metric.id,
-        });
-      };
-
-      onCLS(reportMetric);
-      onFCP(reportMetric);
-      onINP(reportMetric);
-      onLCP(reportMetric);
-      onTTFB(reportMetric);
+    void registerWebVitals((metric) => {
+      trackWebVital(metric.name, {
+        value: metric.value,
+        delta: metric.delta,
+        rating: metric.rating,
+        metricId: metric.id,
+      });
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Unknown web-vitals import failure.';
+      trackError('web_vitals_import_failure', {
+        message: 'web-vitals import failed',
+        details: [message],
+      });
+      console.error('[telemetry]', 'web-vitals import failed', error);
     });
   });
 </script>

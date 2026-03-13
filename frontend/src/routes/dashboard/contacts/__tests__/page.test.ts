@@ -7,6 +7,7 @@ import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { uiStore } from '$lib/stores/ui.store';
+import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 
 vi.mock('$app/navigation', () => ({
   goto: vi.fn().mockResolvedValue(undefined),
@@ -54,7 +55,7 @@ describe('contacts page', () => {
     tenantStore.reset();
     uiStore.reset();
 
-    authStore.setSession('access-token', '2026-03-13T10:00:00Z');
+    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
     tenantStore.resolveTenant('tenant-a');
     window.history.replaceState({}, '', '/dashboard/contacts?page=1&pageSize=20');
   });

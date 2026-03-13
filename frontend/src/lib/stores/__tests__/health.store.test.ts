@@ -62,4 +62,34 @@ describe('healthStore', () => {
       correlationId: 'corr-degraded',
     });
   });
+
+  it('ignores late poll results after reset', async () => {
+    let resolveHealthCheck: ((value: Awaited<ReturnType<typeof checkHealth>>) => void) | undefined;
+
+    checkHealthMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveHealthCheck = resolve;
+        })
+    );
+
+    const pending = healthStore.checkNow();
+    healthStore.reset();
+
+    resolveHealthCheck?.({
+      state: 'healthy',
+      checkedAt: 789,
+      message: '',
+      correlationId: 'corr-late',
+    });
+
+    await pending;
+
+    expect(get(healthStore)).toEqual({
+      state: 'unknown',
+      checkedAt: null,
+      message: '',
+      correlationId: '',
+    });
+  });
 });

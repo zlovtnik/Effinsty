@@ -15,6 +15,7 @@
   let {
     variant = 'primary',
     size = 'md',
+    type = 'button',
     loading = false,
     ariaLabel,
     className = '',
@@ -31,7 +32,7 @@
 </script>
 
 <button
-  type="button"
+  {type}
   class={buttonClass}
   disabled={disabled || loading}
   aria-busy={loading}

@@ -45,7 +45,24 @@ export class ContactDetailController {
       details: { contactId },
     });
     announce('Retrying to load contact details.');
-    await this.loadContact(contactId);
+
+    try {
+      await this.loadContact(contactId);
+    } catch (error) {
+      trackAction('contact_detail_retry', {
+        status: 'failure',
+        message: error instanceof Error ? error.message : 'Unable to load contact.',
+        details: { contactId },
+      });
+      throw error;
+    }
+
+    trackAction('contact_detail_retry', {
+      status: this.state === 'ready' ? 'success' : 'failure',
+      message: this.state === 'ready' ? undefined : this.error.message,
+      correlationId: this.state === 'ready' ? undefined : this.error.correlationId,
+      details: { contactId },
+    });
   }
 
   async toList(): Promise<void> {

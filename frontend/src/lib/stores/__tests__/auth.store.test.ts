@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { authStore } from '$lib/stores/auth.store';
+import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 
 describe('authStore', () => {
   beforeEach(() => {
@@ -28,13 +29,13 @@ describe('authStore', () => {
     authStore.completeLogin({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
-      expiresAt: '2026-03-12T12:00:00Z',
+      expiresAt: TEST_SESSION_EXPIRY,
     });
 
     expect(get(authStore)).toMatchObject({
       isAuthenticated: true,
       accessToken: 'access-token',
-      expiresAt: '2026-03-12T12:00:00Z',
+      expiresAt: TEST_SESSION_EXPIRY,
       loading: false,
       error: null,
     });
@@ -44,7 +45,7 @@ describe('authStore', () => {
     authStore.completeLogin({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
-      expiresAt: '2026-03-12T12:00:00Z',
+      expiresAt: TEST_SESSION_EXPIRY,
     });
 
     authStore.failLogin('Invalid credentials.');
@@ -59,12 +60,12 @@ describe('authStore', () => {
   });
 
   it('updates active access token on refresh success', () => {
-    authStore.setSession('next-access-token', '2026-03-13T12:00:00Z');
+    authStore.setSession('next-access-token', TEST_SESSION_EXPIRY);
 
     expect(get(authStore)).toEqual({
       isAuthenticated: true,
       accessToken: 'next-access-token',
-      expiresAt: '2026-03-13T12:00:00Z',
+      expiresAt: TEST_SESSION_EXPIRY,
       loading: false,
       error: null,
     });

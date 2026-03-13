@@ -31,6 +31,12 @@ Content-Security-Policy:
   form-action 'self';
 ```
 
+- `style-src 'self' 'unsafe-inline'` is a temporary concession, not the target end state.
+- It is still required by current inline style usage in [`frontend/src/app.html`](/Users/rcs/git/Effinsty/frontend/src/app.html) and component-generated inline widths such as [`frontend/src/lib/components/ui/Skeleton.svelte`](/Users/rcs/git/Effinsty/frontend/src/lib/components/ui/Skeleton.svelte).
+- Remediation plan:
+  1. Remove static inline styles in app shell markup.
+  2. Replace runtime `style=` attribute usage with classes or CSS custom properties that work under a strict CSP.
+  3. After inline styles are eliminated, tighten `style-src` to a nonce- or hash-based policy and validate it in staging before rollout.
 - Review every third-party dependency before widening `script-src`, `style-src`, `img-src`, or `connect-src`.
 - Prefer host allowlists over broad wildcards.
 - If report collection is available, add `report-to` or `report-uri` during rollout and monitor violations before tightening further.

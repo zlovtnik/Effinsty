@@ -4,7 +4,18 @@ import { tenantStore } from '$lib/stores/tenant.store';
 export type HealthState = 'unknown' | 'healthy' | 'degraded';
 export type ActionStatus = 'start' | 'success' | 'failure';
 
-interface TelemetryContext {
+const MAX_ERROR_DETAIL_ITEMS = 5;
+const MAX_ERROR_DETAIL_LENGTH = 160;
+const REDACTED_ERROR_DETAIL = '[redacted sensitive detail]';
+const OMITTED_ERROR_DETAIL = 'Additional error details omitted.';
+const SENSITIVE_DETAIL_PATTERNS = [
+  /\b(password|passwd|secret|access token|refresh token|bearer|authorization|cookie|session id|api key)\b/i,
+  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
+  /\b(?:user|username)\s*[:=]/i,
+  /(?:^|[\s(])(?:[A-Za-z]:\\|\/(?:Users|home|var|tmp|etc|opt|srv|private)\b)/,
+];
+
+export interface TelemetryContext {
   route?: string;
   tenantId?: string;
   correlationId?: string;
@@ -70,6 +81,37 @@ type TelemetryEventInput =
 
 export type TelemetrySink = (event: TelemetryEvent) => void | Promise<void>;
 
+function truncateDetail(detail: string): string {
+  if (detail.length <= MAX_ERROR_DETAIL_LENGTH) {
+    return detail;
+  }
+
+  return `${detail.slice(0, MAX_ERROR_DETAIL_LENGTH - 3)}...`;
+}
+
+function isSensitiveDetail(detail: string): boolean {
+  return SENSITIVE_DETAIL_PATTERNS.some((pattern) => pattern.test(detail));
+}
+
+export function sanitizeTelemetryErrorDetails(details: string[] | undefined): string[] | undefined {
+  if (!details?.length) {
+    return details;
+  }
+
+  const sanitized = details
+    .filter((detail): detail is string => typeof detail === 'string')
+    .map((detail) => detail.trim().replace(/\s+/g, ' '))
+    .filter(Boolean)
+    .slice(0, MAX_ERROR_DETAIL_ITEMS)
+    .map((detail) => (isSensitiveDetail(detail) ? REDACTED_ERROR_DETAIL : truncateDetail(detail)));
+
+  if (details.length > MAX_ERROR_DETAIL_ITEMS) {
+    sanitized.push(OMITTED_ERROR_DETAIL);
+  }
+
+  return sanitized.length > 0 ? sanitized : undefined;
+}
+
 function defaultRoute(): string | undefined {
   if (typeof window === 'undefined') {
     return undefined;
@@ -107,7 +149,12 @@ export function resetTelemetrySink(): void {
 
 export function emitTelemetry(event: TelemetryEventInput): void {
   try {
-    void activeSink(withBaseContext(event));
+    const result = activeSink(withBaseContext(event));
+    if (result && typeof result === 'object' && 'catch' in result && typeof result.catch === 'function') {
+      void result.catch((error: unknown) => {
+        console.error('[telemetry]', 'sink failure', error);
+      });
+    }
   } catch (error) {
     console.error('[telemetry]', 'sink failure', error);
   }
@@ -143,6 +190,7 @@ export function trackError(
     kind: 'error',
     name,
     ...payload,
+    details: sanitizeTelemetryErrorDetails(payload.details),
   });
 }
 

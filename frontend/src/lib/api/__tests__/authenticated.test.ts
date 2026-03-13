@@ -5,6 +5,7 @@ import { goto } from '$app/navigation';
 import { authStore } from '$lib/stores/auth.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
+import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 import { logoutCurrentSession, requestWithAuth } from '$lib/api/authenticated';
 
 vi.mock('$app/navigation', () => ({
@@ -35,7 +36,7 @@ describe('authenticated request orchestration', () => {
   });
 
   it('refreshes once and retries the original request after a 401', async () => {
-    authStore.setSession('stale-access-token', '2026-03-13T10:00:00Z');
+    authStore.setSession('stale-access-token', TEST_SESSION_EXPIRY);
     sessionStore.setRefreshToken('refresh-old');
     tenantStore.resolveTenant('tenant-a');
 
@@ -57,7 +58,7 @@ describe('authenticated request orchestration', () => {
           {
             accessToken: 'fresh-access-token',
             refreshToken: 'refresh-new',
-            expiresAt: '2026-03-13T11:00:00Z',
+            expiresAt: TEST_SESSION_EXPIRY,
           },
           200
         )
@@ -90,7 +91,7 @@ describe('authenticated request orchestration', () => {
   });
 
   it('clears state and redirects to login when refresh fails', async () => {
-    authStore.setSession('stale-access-token', '2026-03-13T10:00:00Z');
+    authStore.setSession('stale-access-token', TEST_SESSION_EXPIRY);
     sessionStore.setRefreshToken('refresh-old');
     tenantStore.resolveTenant('tenant-a');
 
@@ -137,7 +138,7 @@ describe('authenticated request orchestration', () => {
   });
 
   it('shares one refresh request across concurrent 401 responses', async () => {
-    authStore.setSession('stale-access-token', '2026-03-13T10:00:00Z');
+    authStore.setSession('stale-access-token', TEST_SESSION_EXPIRY);
     sessionStore.setRefreshToken('refresh-old');
     tenantStore.resolveTenant('tenant-a');
 
@@ -151,7 +152,7 @@ describe('authenticated request orchestration', () => {
           {
             accessToken: 'fresh-access-token',
             refreshToken: 'refresh-new',
-            expiresAt: '2026-03-13T11:00:00Z',
+            expiresAt: TEST_SESSION_EXPIRY,
           },
           200
         );
@@ -196,7 +197,7 @@ describe('authenticated request orchestration', () => {
   });
 
   it('calls logout with bearer token and refresh token payload', async () => {
-    authStore.setSession('access-token', '2026-03-13T10:00:00Z');
+    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
     sessionStore.setRefreshToken('refresh-token');
     tenantStore.resolveTenant('tenant-a');
 

@@ -19,16 +19,18 @@ function isHealthyStatus(value: string | undefined): boolean {
 }
 
 export async function checkHealth(): Promise<HealthStatus> {
-  let responseMeta: ResponseMeta | null = null;
+  let responseCorrelationId = '';
+  let responseStatus: ResponseMeta['status'] | null = null;
 
   try {
-    const body = (await request<HealthResponseBody>('/health', {
+    const body: HealthResponseBody | null = await request<HealthResponseBody>('/health', {
       method: 'GET',
       retry: { attempts: 1, backoffMs: 0 },
       onResponseMeta: (meta) => {
-        responseMeta = meta;
+        responseCorrelationId = meta.correlationId;
+        responseStatus = meta.status;
       },
-    })) as HealthResponseBody | null;
+    });
 
     const normalizedStatus = body?.status?.trim().toLowerCase();
     const state = normalizedStatus && !isHealthyStatus(normalizedStatus) ? 'degraded' : 'healthy';
@@ -41,7 +43,7 @@ export async function checkHealth(): Promise<HealthStatus> {
       state,
       checkedAt: Date.now(),
       message,
-      correlationId: body?.correlationId ?? responseMeta?.correlationId ?? '',
+      correlationId: responseCorrelationId,
     };
   } catch (error) {
     if (isRequestError(error)) {
@@ -50,10 +52,10 @@ export async function checkHealth(): Promise<HealthStatus> {
         checkedAt: Date.now(),
         message:
           error.appError.message ||
-          (error.appError.status
-            ? `Health check failed with status ${error.appError.status}.`
+          (error.appError.status ?? responseStatus
+            ? `Health check failed with status ${error.appError.status ?? responseStatus}.`
             : 'Health check failed.'),
-        correlationId: error.appError.correlationId ?? '',
+        correlationId: error.appError.correlationId ?? responseCorrelationId,
       };
     }
 
@@ -61,7 +63,7 @@ export async function checkHealth(): Promise<HealthStatus> {
       state: 'degraded',
       checkedAt: Date.now(),
       message: error instanceof Error ? error.message : 'Health check failed.',
-      correlationId: '',
+      correlationId: responseCorrelationId,
     };
   }
 }

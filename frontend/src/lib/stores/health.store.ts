@@ -14,11 +14,17 @@ function createHealthStore() {
 
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlight: Promise<HealthStatus> | null = null;
+  let pollVersion = 0;
 
   const poll = async (): Promise<HealthStatus> => {
     if (!inFlight) {
-      inFlight = checkHealth()
+      const requestVersion = pollVersion;
+      const requestPromise = checkHealth()
         .then((next) => {
+          if (requestVersion !== pollVersion) {
+            return INITIAL_STATE;
+          }
+
           set(next);
           trackHealth('health_poll', {
             state: next.state,
@@ -29,8 +35,12 @@ function createHealthStore() {
           return next;
         })
         .finally(() => {
-          inFlight = null;
+          if (inFlight === requestPromise) {
+            inFlight = null;
+          }
         });
+
+      inFlight = requestPromise;
     }
 
     return inFlight;
@@ -61,6 +71,8 @@ function createHealthStore() {
         timer = null;
       }
 
+      pollVersion += 1;
+      inFlight = null;
       set(INITIAL_STATE);
     },
   };

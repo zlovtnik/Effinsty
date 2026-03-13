@@ -5,6 +5,7 @@ import { RequestError } from '$lib/api/errors';
 import { authStore } from '$lib/stores/auth.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
+import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 
 vi.mock('$lib/api/auth', () => ({
   login: vi.fn(),
@@ -52,7 +53,7 @@ describe('login page', () => {
     loginMock.mockResolvedValue({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
-      expiresAt: '2026-03-12T12:00:00Z',
+      expiresAt: TEST_SESSION_EXPIRY,
     });
 
     window.history.replaceState({}, '', '/login?returnTo=%2Fdashboard%2Fcontacts%3Fpage%3D2');
@@ -121,7 +122,7 @@ describe('login page', () => {
     authStore.completeLogin({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
-      expiresAt: '2026-03-12T12:00:00Z',
+      expiresAt: TEST_SESSION_EXPIRY,
     });
 
     render(LoginPage);

@@ -7,15 +7,70 @@ open System.Threading
 open Dapper
 
 module DbSchemaValidator =
+    [<CLIMutable>]
+    type private IndexColumnRow = {
+        IndexName: string
+        TableName: string
+        ColumnPosition: int
+        ColumnName: string
+        Descend: string
+    }
+
+    type private IndexColumn = {
+        ColumnName: string
+        Descending: bool
+    }
+
+    type private RequiredIndex = {
+        Name: string
+        TableName: string
+        Columns: IndexColumn array
+    }
+
     let private requiredTables = [| "USERS"; "CONTACTS"; "SESSIONS" |]
-    let private requiredIndexes =
-        [| "IX_USERS_EMAIL"
-           "IX_CONTACTS_USER_UPDATED"
-           "IX_CONTACTS_USER_EMAIL"
-           "IX_SESSIONS_USER_EXPIRES"
-           "IX_SESSIONS_EXPIRES" |]
+   
     let private requiredTriggers = [| "TRG_USERS_UPDATED_AT"; "TRG_CONTACTS_UPDATED_AT" |]
     let private requiredFks = [| "FK_CONTACTS_USERS"; "FK_SESSIONS_USERS" |]
+    let private requiredIndexes = [||]
+    let private loadIndexDefinitions (conn: IDbConnection) (owner: string) (ct: CancellationToken) =
+        task {
+            let! rows =
+                conn.QueryAsync<IndexColumnRow>(
+                    CommandDefinition(
+                        "SELECT INDEX_NAME AS IndexName, TABLE_NAME AS TableName, COLUMN_POSITION AS ColumnPosition, COLUMN_NAME AS ColumnName, DESCEND AS Descend
+                         FROM ALL_IND_COLUMNS
+                         WHERE TABLE_OWNER = :owner
+                         ORDER BY TABLE_NAME, INDEX_NAME, COLUMN_POSITION",
+                        {| owner = owner |},
+                        cancellationToken = ct
+                    )
+                )
+
+            return
+                rows
+                |> Seq.groupBy (fun row -> row.TableName, row.IndexName)
+                |> Seq.map (fun ((tableName, _indexName), group) ->
+                    tableName,
+                    (group
+                     |> Seq.sortBy (fun row -> row.ColumnPosition)
+                     |> Seq.map (fun row ->
+                         { ColumnName = row.ColumnName
+                           Descending = String.Equals(row.Descend, "DESC", StringComparison.OrdinalIgnoreCase) })
+                     |> Seq.toArray))
+                |> Seq.toArray
+        }
+
+    let private hasMatchingIndex (indexDefinitions: (string * IndexColumn array) array) (requiredIndex: RequiredIndex) =
+        indexDefinitions
+        |> Array.exists (fun (tableName, columns) ->
+            String.Equals(tableName, requiredIndex.TableName, StringComparison.Ordinal)
+            && columns.Length = requiredIndex.Columns.Length
+            && Array.forall2
+                (fun actual expected ->
+                    String.Equals(actual.ColumnName, expected.ColumnName, StringComparison.Ordinal)
+                    && actual.Descending = expected.Descending)
+                columns
+                requiredIndex.Columns)
 
     let validateSchema (conn: IDbConnection) (schema: string) (ct: CancellationToken) =
         task {
@@ -24,6 +79,7 @@ module DbSchemaValidator =
 
             let upper = schema.ToUpperInvariant()
             let missing = ResizeArray<string>()
+            let! indexDefinitions = loadIndexDefinitions conn upper ct
 
             for tableName in requiredTables do
                 let! count =
@@ -39,19 +95,9 @@ module DbSchemaValidator =
                 if count = 0 then
                     missing.Add($"TABLE {upper}.{tableName}")
 
-            for indexName in requiredIndexes do
-                let! count =
-                    conn.ExecuteScalarAsync<int>(
-                        CommandDefinition(
-                            "SELECT COUNT(1) FROM ALL_INDEXES WHERE INDEX_NAME=:name AND OWNER=:owner",
-                            {| name = indexName
-                               owner = upper |},
-                            cancellationToken = ct
-                        )
-                    )
-
-                if count = 0 then
-                    missing.Add($"INDEX {upper}.{indexName}")
+            for requiredIndex in requiredIndexes do
+                if not (hasMatchingIndex indexDefinitions requiredIndex) then
+                    missing.Add($"INDEX {upper}.{requiredIndex.Name}")
 
             for triggerName in requiredTriggers do
                 let! count =

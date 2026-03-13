@@ -6,6 +6,7 @@ import { readable } from 'svelte/store';
 import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { sessionStore } from '$lib/stores/session.store';
+import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 import { getContact } from '$lib/api/contacts';
 import DetailPage from '../+page.svelte';
 
@@ -34,7 +35,7 @@ describe('contact detail page a11y', () => {
     authStore.reset();
     tenantStore.reset();
     sessionStore.reset();
-    authStore.setSession('access-token', '2026-03-13T10:00:00Z');
+    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
     tenantStore.resolveTenant('tenant-a');
     vi.mocked(getContact).mockResolvedValue({
       id: '11111111-1111-1111-1111-111111111111',

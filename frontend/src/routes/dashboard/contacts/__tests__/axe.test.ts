@@ -7,6 +7,7 @@ import { tenantStore } from '$lib/stores/tenant.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { uiStore } from '$lib/stores/ui.store';
 import { listContacts } from '$lib/api/contacts';
+import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 import ContactsPage from '../+page.svelte';
 
 vi.mock('$app/navigation', () => ({
@@ -28,8 +29,7 @@ describe('contacts list page a11y', () => {
     sessionStore.reset();
     uiStore.reset();
 
-    const futureExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    authStore.setSession('access-token', futureExpiry);
+    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
     tenantStore.resolveTenant('tenant-a');
     window.history.replaceState({}, '', '/dashboard/contacts?page=1&pageSize=20');
 

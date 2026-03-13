@@ -5,6 +5,7 @@ import { goto } from '$app/navigation';
 import { authStore } from '$lib/stores/auth.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
+import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 
 vi.mock('$app/navigation', () => ({
   goto: vi.fn(),
@@ -52,7 +53,7 @@ describe('dashboard layout guard', () => {
 
   it('redirects authenticated users with invalid tenant context', async () => {
     window.history.replaceState({}, '', '/dashboard/settings');
-    authStore.setSession('access-token', '2026-03-13T10:00:00Z');
+    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
     tenantStore.setTenant('tenant-a');
 
     render(DashboardLayout);
@@ -66,7 +67,7 @@ describe('dashboard layout guard', () => {
 
   it('signs out and redirects to login from dashboard shell', async () => {
     window.history.replaceState({}, '', '/dashboard');
-    authStore.setSession('access-token', '2026-03-13T10:00:00Z');
+    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
     sessionStore.setRefreshToken('refresh-token');
     tenantStore.resolveTenant('tenant-a');
 

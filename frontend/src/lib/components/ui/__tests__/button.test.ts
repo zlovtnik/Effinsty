@@ -35,4 +35,18 @@ describe('Button', () => {
     expect(button).toHaveAttribute('aria-busy', 'true');
     expect(button).toBeDisabled();
   });
+
+  it('honors the provided button type', () => {
+    const onClick = vi.fn();
+
+    render(ButtonHarness, {
+      props: {
+        label: 'Submit',
+        onClick,
+        type: 'submit',
+      },
+    });
+
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveAttribute('type', 'submit');
+  });
 });
