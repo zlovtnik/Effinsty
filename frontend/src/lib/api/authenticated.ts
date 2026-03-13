@@ -6,6 +6,7 @@ import { clearSessionAndRedirectToLogin, clearSessionState } from '$lib/auth/ses
 import { authStore } from '$lib/stores/auth.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
+import { trackAction, trackError } from '$lib/utils/telemetry';
 
 type AuthenticatedRequestOptions = Omit<RequestOptions, 'tenantId' | 'accessToken'> & {
   tenantId: string;
@@ -30,11 +31,42 @@ async function refreshAccessToken(tenantId: string): Promise<string> {
 
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
-      const next = await refresh(tenantId, { refreshToken });
-      authStore.setSession(next.accessToken, next.expiresAt);
-      sessionStore.setRefreshToken(next.refreshToken);
-      tenantStore.resolveTenant(tenantId);
-      return next.accessToken;
+      trackAction('session_refresh', {
+        status: 'start',
+        details: { tenantId },
+      });
+
+      try {
+        const next = await refresh(tenantId, { refreshToken });
+        authStore.setSession(next.accessToken, next.expiresAt);
+        sessionStore.setRefreshToken(next.refreshToken);
+        tenantStore.resolveTenant(tenantId);
+        trackAction('session_refresh', {
+          status: 'success',
+          details: { tenantId },
+        });
+        return next.accessToken;
+      } catch (error) {
+        if (isRequestError(error)) {
+          trackError('session_refresh_failure', {
+            message: error.appError.message,
+            statusCode: error.appError.status,
+            details: error.appError.details,
+            correlationId: error.appError.correlationId,
+          });
+        } else {
+          trackError('session_refresh_failure', {
+            message: error instanceof Error ? error.message : 'Session refresh failed.',
+          });
+        }
+
+        trackAction('session_refresh', {
+          status: 'failure',
+          message: 'Session refresh failed.',
+          details: { tenantId },
+        });
+        throw error;
+      }
     })().finally(() => {
       refreshInFlight = null;
     });
@@ -81,6 +113,11 @@ export async function logoutCurrentSession(): Promise<void> {
   const sessionState = get(sessionStore);
 
   try {
+    trackAction('logout', {
+      status: 'start',
+      details: { tenantId: tenantState.tenantId ?? undefined },
+    });
+
     if (tenantState.tenantId && authState.accessToken && sessionState.refreshToken) {
       await logout(
         tenantState.tenantId,
@@ -88,6 +125,11 @@ export async function logoutCurrentSession(): Promise<void> {
         authState.accessToken
       );
     }
+
+    trackAction('logout', {
+      status: 'success',
+      details: { tenantId: tenantState.tenantId ?? undefined },
+    });
   } finally {
     clearSessionState();
   }

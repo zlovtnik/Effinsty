@@ -14,6 +14,18 @@ vi.mock('$lib/api/authenticated', () => ({
   logoutCurrentSession: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('$lib/stores/health.store', () => ({
+  healthStore: {
+    subscribe: vi.fn((run: (value: { state: string; checkedAt: number | null; message: string; correlationId: string }) => void) => {
+      run({ state: 'healthy', checkedAt: 123, message: '', correlationId: '' });
+      return () => {};
+    }),
+    startPolling: vi.fn(),
+    stopPolling: vi.fn(),
+    reset: vi.fn(),
+  },
+}));
+
 import { logoutCurrentSession } from '$lib/api/authenticated';
 import DashboardLayout from '../+layout.svelte';
 

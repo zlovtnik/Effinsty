@@ -4,6 +4,7 @@ export interface Notification {
   id: string;
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
+  correlationId?: string;
 }
 
 export interface ConfirmModalState {
@@ -48,11 +49,16 @@ function createUiStore() {
 
   return {
     subscribe,
-    enqueueNotification: (type: Notification['type'], message: string) => {
+    enqueueNotification: (
+      type: Notification['type'],
+      message: string,
+      options: { correlationId?: string } = {}
+    ) => {
       const notification: Notification = {
         id: createId(),
         type,
         message,
+        correlationId: options.correlationId,
       };
 
       update((state) => ({

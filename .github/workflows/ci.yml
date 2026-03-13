@@ -33,6 +33,15 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Bundle budgets
+        run: bun run perf:budgets
+
+      - name: Install Playwright browser
+        run: bunx playwright install --with-deps chromium
+
+      - name: E2E
+        run: bun run test:e2e
+
   build-test:
     runs-on: ubuntu-latest
     steps:

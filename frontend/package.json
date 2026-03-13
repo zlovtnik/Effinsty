@@ -14,9 +14,12 @@
     "format:write": "prettier --write .",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest",
-    "test:ci": "vitest run --coverage"
+    "test:ci": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "perf:budgets": "node scripts/check-bundle-budgets.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.53.0",
     "@sveltejs/adapter-auto": "^6.0.0",
     "@sveltejs/kit": "^2.22.0",
     "@sveltejs/vite-plugin-svelte": "^5.1.0",
@@ -42,6 +45,7 @@
     "vitest-axe": "0.1.0",
     "typescript": "^5.8.2",
     "vite": "^6.2.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "web-vitals": "^5.1.0"
   }
 }

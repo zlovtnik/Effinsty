@@ -8,7 +8,7 @@ import { authStore } from '$lib/stores/auth.store';
 import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { announce } from '$lib/utils/a11y';
-import { track } from '$lib/utils/telemetry';
+import { trackAction, trackError } from '$lib/utils/telemetry';
 
 export type State = 'idle' | 'loading' | 'success' | 'error';
 export type FieldName = 'tenantId' | 'username' | 'password';
@@ -235,7 +235,10 @@ export class LoginController {
     this.routeMessage = '';
     authStore.startLogin();
     tenantStore.setTenant(tenantId);
-    track('login_attempt', { tenantId });
+    trackAction('login', {
+      status: 'start',
+      details: { tenantId },
+    });
   }
 
   private completeLogin(tenantId: string, tokens: AuthTokens): void {
@@ -243,7 +246,10 @@ export class LoginController {
     authStore.completeLogin(tokens);
     sessionStore.setRefreshToken(tokens.refreshToken);
     tenantStore.resolveTenant(tenantId);
-    track('login_success', { tenantId });
+    trackAction('login', {
+      status: 'success',
+      details: { tenantId },
+    });
     this.liveMessage = 'Signed in successfully. Redirecting to dashboard.';
     announce(this.liveMessage);
   }
@@ -267,7 +273,17 @@ export class LoginController {
       tenantStore.setError(failure.message);
     }
 
-    track('login_failure', { tenantId, correlationId: failure.correlationId });
+    trackAction('login', {
+      status: 'failure',
+      message: failure.message,
+      correlationId: failure.correlationId,
+      details: { tenantId },
+    });
+    trackError('login_failure', {
+      message: failure.message,
+      details: failure.details,
+      correlationId: failure.correlationId,
+    });
     announce(failure.message, 'assertive');
   }
 

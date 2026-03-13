@@ -114,16 +114,16 @@
       aria-labelledby="confirm-title"
       aria-describedby="confirm-message"
       tabindex="0"
-      on:keydown={handleKeydown}
+      onkeydown={handleKeydown}
     >
       <h2 id="confirm-title">{$uiStore.confirmModal.title}</h2>
       <p id="confirm-message">{$uiStore.confirmModal.message}</p>
       <div class="actions">
-        <button type="button" class="secondary" on:click={cancel}>{$uiStore.confirmModal.cancelLabel}</button>
+        <button type="button" class="secondary" onclick={cancel}>{$uiStore.confirmModal.cancelLabel}</button>
         <button
           type="button"
           class={$uiStore.confirmModal.tone === 'danger' ? 'danger' : 'primary'}
-          on:click={confirm}
+          onclick={confirm}
         >
           {$uiStore.confirmModal.confirmLabel}
         </button>

@@ -6,6 +6,7 @@ import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
 import { filterAndSortContacts, type ContactsSortKey } from '$lib/contacts/listing';
+import { trackAction, trackError } from '$lib/utils/telemetry';
 import { get } from 'svelte/store';
 
 function createCorrelationId(): string {
@@ -107,6 +108,7 @@ export class ContactsListController {
   }
 
   async retry(): Promise<void> {
+    trackAction('contacts_list_retry', { status: 'start' });
     announce('Retrying to load contacts.');
     await this.loadContacts();
   }
@@ -148,6 +150,10 @@ export class ContactsListController {
     }
 
     try {
+      trackAction('contact_delete', {
+        status: 'start',
+        details: { contactId: contact.id },
+      });
       await deleteContact(
         tenantState.tenantId,
         authState.accessToken,
@@ -155,11 +161,27 @@ export class ContactsListController {
         createCorrelationId()
       );
       uiStore.enqueueNotification('success', 'Contact deleted.');
+      trackAction('contact_delete', {
+        status: 'success',
+        details: { contactId: contact.id },
+      });
       announce('Contact deleted.');
       await this.loadContacts();
     } catch (error) {
       const message = isRequestError(error) ? error.appError.message : 'Unable to delete contact.';
-      uiStore.enqueueNotification('error', message);
+      const correlationId = isRequestError(error) ? error.appError.correlationId ?? '' : '';
+      uiStore.enqueueNotification('error', message, { correlationId });
+      trackAction('contact_delete', {
+        status: 'failure',
+        message,
+        correlationId,
+        details: { contactId: contact.id },
+      });
+      trackError('contact_delete_failure', {
+        message,
+        correlationId,
+        details: isRequestError(error) ? error.appError.details : [],
+      });
       announce(message, 'assertive');
     }
   }
@@ -178,6 +200,7 @@ export class ContactsListController {
   private async loadContacts(): Promise<void> {
     this.isBusy = true;
     this.state = 'loading';
+    trackAction('contacts_list_load', { status: 'start' });
     announce('Loading contacts.');
     this.error = {
       message: '',
@@ -214,6 +237,14 @@ export class ContactsListController {
       this.page = response.page;
       this.pageSize = response.pageSize;
       this.state = response.items.length > 0 ? 'ready' : 'empty';
+      trackAction('contacts_list_load', {
+        status: 'success',
+        details: {
+          page: response.page,
+          pageSize: response.pageSize,
+          totalCount: response.totalCount,
+        },
+      });
       announce(
         response.items.length > 0
           ? `Loaded ${response.items.length} contacts on page ${response.page}.`
@@ -236,6 +267,17 @@ export class ContactsListController {
           correlationId: '',
         };
       }
+      trackAction('contacts_list_load', {
+        status: 'failure',
+        message: this.error.message,
+        correlationId: this.error.correlationId,
+        details: { page: this.page, pageSize: this.pageSize },
+      });
+      trackError('contacts_list_load_failure', {
+        message: this.error.message,
+        details: this.error.details,
+        correlationId: this.error.correlationId,
+      });
       announce(this.error.message, 'assertive');
     } finally {
       this.isBusy = false;

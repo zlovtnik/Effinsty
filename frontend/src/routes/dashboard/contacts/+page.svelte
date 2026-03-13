@@ -6,6 +6,7 @@
   import Field from '$lib/components/ui/Field.svelte';
   import Input from '$lib/components/ui/Input.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
+  import Skeleton from '$lib/components/ui/Skeleton.svelte';
   import { ContactsListController } from './contacts-list.controller.svelte';
 
   const controller = new ContactsListController();
@@ -61,7 +62,20 @@
   <p class="dg3-note">Results are limited to the currently loaded page.</p>
 
   {#if controller.state === 'loading'}
-    <div class="state-card" role="status" aria-live="polite">Loading contacts...</div>
+    <div class="loading-shell" role="status" aria-live="polite">
+      <div class="surface-card state-card">
+        <Skeleton lines={2} compact={true} />
+      </div>
+      <div class="surface-card state-card">
+        <Skeleton lines={2} />
+      </div>
+      <div class="surface-card state-card">
+        <Skeleton lines={8} />
+      </div>
+      <div class="surface-card state-card">
+        <Skeleton lines={2} compact={true} />
+      </div>
+    </div>
   {:else if controller.state === 'error'}
     <div class="state-stack">
       <ErrorDetailsPanel
@@ -179,6 +193,11 @@
     padding: 0.9rem;
     display: grid;
     gap: 0.55rem;
+  }
+
+  .loading-shell {
+    display: grid;
+    gap: 0.75rem;
   }
 
   .table-wrap {

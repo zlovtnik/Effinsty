@@ -44,7 +44,7 @@
     Math.random().toString(36).slice(2, 8)
   );
 
-  let modalRef = $state<HTMLDivElement | null>(null);
+  let modalRef = $state<HTMLElement | null>(null);
   let lastFocused: Element | null = $state(null);
 
   const fallbackTitleId = $derived(`ui-modal-title-${instanceId}`);

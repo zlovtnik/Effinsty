@@ -5,6 +5,7 @@ import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
 import { announce } from '$lib/utils/a11y';
+import { trackAction, trackError } from '$lib/utils/telemetry';
 import { get } from 'svelte/store';
 
 function createCorrelationId(): string {
@@ -39,6 +40,10 @@ export class ContactDetailController {
   }
 
   async retry(contactId: string): Promise<void> {
+    trackAction('contact_detail_retry', {
+      status: 'start',
+      details: { contactId },
+    });
     announce('Retrying to load contact details.');
     await this.loadContact(contactId);
   }
@@ -78,6 +83,10 @@ export class ContactDetailController {
     }
 
     this.isDeleting = true;
+    trackAction('contact_delete', {
+      status: 'start',
+      details: { contactId },
+    });
     announce('Deleting contact.');
 
     try {
@@ -88,11 +97,27 @@ export class ContactDetailController {
         createCorrelationId()
       );
       uiStore.enqueueNotification('success', 'Contact deleted.');
+      trackAction('contact_delete', {
+        status: 'success',
+        details: { contactId },
+      });
       announce('Contact deleted.');
       await goto('/dashboard/contacts');
     } catch (error) {
       const message = isRequestError(error) ? error.appError.message : 'Unable to delete contact.';
-      uiStore.enqueueNotification('error', message);
+      const correlationId = isRequestError(error) ? error.appError.correlationId ?? '' : '';
+      uiStore.enqueueNotification('error', message, { correlationId });
+      trackAction('contact_delete', {
+        status: 'failure',
+        message,
+        correlationId,
+        details: { contactId },
+      });
+      trackError('contact_delete_failure', {
+        message,
+        details: isRequestError(error) ? error.appError.details : [],
+        correlationId,
+      });
       announce(message, 'assertive');
     } finally {
       this.isDeleting = false;
@@ -101,6 +126,10 @@ export class ContactDetailController {
 
   private async loadContact(contactId: string): Promise<void> {
     this.state = 'loading';
+    trackAction('contact_detail_load', {
+      status: 'start',
+      details: { contactId },
+    });
     announce('Loading contact details.');
     this.error = {
       message: '',
@@ -130,6 +159,10 @@ export class ContactDetailController {
         createCorrelationId()
       );
       this.state = 'ready';
+      trackAction('contact_detail_load', {
+        status: 'success',
+        details: { contactId },
+      });
       announce('Contact loaded.');
     } catch (error) {
       this.state = 'error';
@@ -147,6 +180,17 @@ export class ContactDetailController {
         };
       }
 
+      trackAction('contact_detail_load', {
+        status: 'failure',
+        message: this.error.message,
+        correlationId: this.error.correlationId,
+        details: { contactId },
+      });
+      trackError('contact_detail_load_failure', {
+        message: this.error.message,
+        details: this.error.details,
+        correlationId: this.error.correlationId,
+      });
       announce(this.error.message, 'assertive');
     }
   }

@@ -19,8 +19,14 @@
       <div class="toast-content">
         <strong>{typeToLabel[toast.type]}</strong>
         <p>{toast.message}</p>
+        {#if toast.correlationId}
+          <p class="toast-correlation">
+            Correlation ID:
+            <code>{toast.correlationId}</code>
+          </p>
+        {/if}
       </div>
-      <button type="button" class="toast-dismiss" on:click={() => dismiss(toast.id)} aria-label="Dismiss notification">
+      <button type="button" class="toast-dismiss" onclick={() => dismiss(toast.id)} aria-label="Dismiss notification">
         Dismiss
       </button>
     </article>
@@ -63,6 +69,15 @@
   .toast-content p {
     margin: 0;
     font-size: 0.95rem;
+  }
+
+  .toast-correlation {
+    font-size: 0.8rem;
+    color: hsl(var(--text) / 0.75);
+  }
+
+  code {
+    font-family: var(--font-family-mono, monospace);
   }
 
   .toast-dismiss {

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { ButtonHTMLAttributes } from 'svelte/elements';
+  import type { HTMLButtonAttributes } from 'svelte/elements';
 
   type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-outline';
   type ButtonSize = 'sm' | 'md' | 'lg';
 
-  interface Props extends Omit<ButtonHTMLAttributes, 'class' | 'size' | 'variant'> {
+  interface Props extends Omit<HTMLButtonAttributes, 'class' | 'size' | 'variant'> {
     variant?: ButtonVariant;
     size?: ButtonSize;
     loading?: boolean;

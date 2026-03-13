@@ -67,7 +67,7 @@ describe('contacts page', () => {
 
     render(ContactsPage);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading contacts...');
+    expect(screen.getByRole('status')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();

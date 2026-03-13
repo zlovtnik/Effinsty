@@ -12,6 +12,7 @@ import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
 import { announce } from '$lib/utils/a11y';
+import { trackAction, trackError } from '$lib/utils/telemetry';
 import { get } from 'svelte/store';
 
 function createCorrelationId(): string {
@@ -49,6 +50,10 @@ export class ContactEditController {
   }
 
   async retry(contactId: string): Promise<void> {
+    trackAction('contact_edit_retry', {
+      status: 'start',
+      details: { contactId },
+    });
     announce('Retrying contact load.');
     await this.load(contactId);
   }
@@ -80,6 +85,10 @@ export class ContactEditController {
 
     try {
       announce('Updating contact.');
+      trackAction('contact_update', {
+        status: 'start',
+        details: { contactId },
+      });
       const updated = await updateContact(
         tenantState.tenantId,
         authState.accessToken,
@@ -91,6 +100,10 @@ export class ContactEditController {
       this.contact = updated;
       this.formData = contactToFormData(updated);
       uiStore.enqueueNotification('success', 'Contact updated successfully.');
+      trackAction('contact_update', {
+        status: 'success',
+        details: { contactId: updated.id },
+      });
       announce('Contact updated successfully.');
       await goto(`/dashboard/contacts/${updated.id}`);
     } catch (error) {
@@ -107,6 +120,17 @@ export class ContactEditController {
           correlationId: '',
         };
       }
+      trackAction('contact_update', {
+        status: 'failure',
+        message: this.error.message,
+        correlationId: this.error.correlationId,
+        details: { contactId },
+      });
+      trackError('contact_update_failure', {
+        message: this.error.message,
+        details: this.error.details,
+        correlationId: this.error.correlationId,
+      });
       announce(this.error.message, 'assertive');
     } finally {
       this.isSubmitting = false;
@@ -140,6 +164,10 @@ export class ContactEditController {
     }
 
     this.isDeleting = true;
+    trackAction('contact_delete', {
+      status: 'start',
+      details: { contactId },
+    });
     announce('Deleting contact.');
 
     try {
@@ -150,11 +178,27 @@ export class ContactEditController {
         createCorrelationId()
       );
       uiStore.enqueueNotification('success', 'Contact deleted.');
+      trackAction('contact_delete', {
+        status: 'success',
+        details: { contactId },
+      });
       announce('Contact deleted.');
       await goto('/dashboard/contacts');
     } catch (error) {
       const message = isRequestError(error) ? error.appError.message : 'Unable to delete contact.';
-      uiStore.enqueueNotification('error', message);
+      const correlationId = isRequestError(error) ? error.appError.correlationId ?? '' : '';
+      uiStore.enqueueNotification('error', message, { correlationId });
+      trackAction('contact_delete', {
+        status: 'failure',
+        message,
+        correlationId,
+        details: { contactId },
+      });
+      trackError('contact_delete_failure', {
+        message,
+        details: isRequestError(error) ? error.appError.details : [],
+        correlationId,
+      });
       announce(message, 'assertive');
     } finally {
       this.isDeleting = false;
@@ -167,6 +211,10 @@ export class ContactEditController {
 
   private async load(contactId: string): Promise<void> {
     this.state = 'loading';
+    trackAction('contact_edit_load', {
+      status: 'start',
+      details: { contactId },
+    });
     announce('Loading contact details.');
     this.error = {
       message: '',
@@ -199,6 +247,10 @@ export class ContactEditController {
       this.contact = found;
       this.formData = contactToFormData(found);
       this.state = 'ready';
+      trackAction('contact_edit_load', {
+        status: 'success',
+        details: { contactId },
+      });
       announce('Contact loaded.');
     } catch (error) {
       this.state = 'error';
@@ -216,6 +268,17 @@ export class ContactEditController {
         };
       }
 
+      trackAction('contact_edit_load', {
+        status: 'failure',
+        message: this.error.message,
+        correlationId: this.error.correlationId,
+        details: { contactId },
+      });
+      trackError('contact_edit_load_failure', {
+        message: this.error.message,
+        details: this.error.details,
+        correlationId: this.error.correlationId,
+      });
       announce(this.error.message, 'assertive');
     }
   }

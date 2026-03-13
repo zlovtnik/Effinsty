@@ -4,6 +4,7 @@
   import { page } from '$app/stores';
   import ErrorDetailsPanel from '$lib/components/contacts/ErrorDetailsPanel.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Skeleton from '$lib/components/ui/Skeleton.svelte';
   import { ContactDetailController } from './contact-detail.controller.svelte';
 
   const controller = new ContactDetailController();
@@ -21,7 +22,9 @@
   </header>
 
   {#if controller.state === 'loading'}
-    <div class="surface-card state">Loading contact...</div>
+    <div class="surface-card state">
+      <Skeleton lines={6} />
+    </div>
   {:else if controller.state === 'error'}
     <div class="state-stack">
       <ErrorDetailsPanel

@@ -11,6 +11,42 @@ module.exports = {
     es2022: true,
     node: true
   },
+  rules: {
+    'no-restricted-globals': [
+      'error',
+      {
+        name: 'localStorage',
+        message: 'Browser storage is forbidden for session/token persistence. Use in-memory state only.'
+      },
+      {
+        name: 'sessionStorage',
+        message: 'Browser storage is forbidden for session/token persistence. Use in-memory state only.'
+      }
+    ],
+    'no-restricted-properties': [
+      'error',
+      {
+        object: 'window',
+        property: 'localStorage',
+        message: 'Browser storage is forbidden for session/token persistence. Use in-memory state only.'
+      },
+      {
+        object: 'window',
+        property: 'sessionStorage',
+        message: 'Browser storage is forbidden for session/token persistence. Use in-memory state only.'
+      },
+      {
+        object: 'globalThis',
+        property: 'localStorage',
+        message: 'Browser storage is forbidden for session/token persistence. Use in-memory state only.'
+      },
+      {
+        object: 'globalThis',
+        property: 'sessionStorage',
+        message: 'Browser storage is forbidden for session/token persistence. Use in-memory state only.'
+      }
+    ]
+  },
   overrides: [
     {
       files: ['**/*.svelte'],
@@ -21,8 +57,10 @@ module.exports = {
         sourceType: 'module',
         extraFileExtensions: ['.svelte']
       },
+      plugins: ['svelte'],
       rules: {
-        'no-inner-declarations': 'off'
+        'no-inner-declarations': 'off',
+        'svelte/no-at-html-tags': 'error'
       }
     }
   ]

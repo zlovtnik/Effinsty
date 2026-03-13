@@ -9,6 +9,7 @@ import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
 import { announce } from '$lib/utils/a11y';
+import { trackAction, trackError } from '$lib/utils/telemetry';
 import { get } from 'svelte/store';
 
 function createCorrelationId(): string {
@@ -62,6 +63,7 @@ export class ContactCreateController {
 
     try {
       announce('Creating contact.');
+      trackAction('contact_create', { status: 'start' });
       const created = await createContact(
         tenantState.tenantId,
         authState.accessToken,
@@ -70,6 +72,10 @@ export class ContactCreateController {
       );
 
       uiStore.enqueueNotification('success', 'Contact created successfully.');
+      trackAction('contact_create', {
+        status: 'success',
+        details: { contactId: created.id },
+      });
       announce('Contact created successfully.');
       await goto(`/dashboard/contacts/${created.id}`);
     } catch (error) {
@@ -86,6 +92,16 @@ export class ContactCreateController {
           correlationId: '',
         };
       }
+      trackAction('contact_create', {
+        status: 'failure',
+        message: this.error.message,
+        correlationId: this.error.correlationId,
+      });
+      trackError('contact_create_failure', {
+        message: this.error.message,
+        details: this.error.details,
+        correlationId: this.error.correlationId,
+      });
       announce(this.error.message, 'assertive');
     } finally {
       this.isSubmitting = false;
