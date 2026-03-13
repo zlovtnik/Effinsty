@@ -47,3 +47,6 @@ tests/**/TestResults/
 
 # Oracle wallet
 **/wallet/**
+
+# Local developer overrides
+src/Effinsty.Api/appsettings.Development.json
