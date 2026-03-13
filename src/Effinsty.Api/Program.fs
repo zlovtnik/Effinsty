@@ -4,6 +4,7 @@ open System
 open System.Text
 open System.Text.Json
 open Effinsty.Api.Context
+open Effinsty.Api.ScopeAuthorization
 open Effinsty.Application
 open Effinsty.Domain
 open Effinsty.Infrastructure
@@ -167,11 +168,11 @@ module Program =
             subRoute "/api/contacts" (
                 requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
                 >=> choose [
-                    GET >=> route "" >=> ContactHandlers.listContacts
-                    POST >=> route "" >=> ContactHandlers.createContact
-                    GET >=> routef "/%O" ContactHandlers.getContact
-                    PUT >=> routef "/%O" ContactHandlers.updateContact
-                    DELETE >=> routef "/%O" ContactHandlers.deleteContact
+                    GET >=> route "" >=> requireScope "contacts.read" >=> ContactHandlers.listContacts
+                    POST >=> route "" >=> requireScope "contacts.write" >=> ContactHandlers.createContact
+                    GET >=> routef "/%O" (fun contactId -> requireScope "contacts.read" >=> ContactHandlers.getContact contactId)
+                    PUT >=> routef "/%O" (fun contactId -> requireScope "contacts.write" >=> ContactHandlers.updateContact contactId)
+                    DELETE >=> routef "/%O" (fun contactId -> requireAnyScope [ "contacts.delete"; "contacts.write" ] >=> ContactHandlers.deleteContact contactId)
                 ]
             )
 

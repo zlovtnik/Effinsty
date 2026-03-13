@@ -1,0 +1,12 @@
+.container-page {
+  width: min(100%, 1200px);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+.surface-card {
+  background: hsl(var(--surface));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}

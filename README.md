@@ -96,16 +96,24 @@ docs/media/
 All `/api/contacts` endpoints require:
 - `Authorization: Bearer <token>`
 - `X-Tenant-ID: <tenant-id>`
-- OAuth scope claim in the access token:
-  - `contacts.read` for `GET /api/contacts` and `GET /api/contacts/{id}`
-  - `contacts.write` for `POST /api/contacts`, `PUT /api/contacts/{id}`, and `DELETE /api/contacts/{id}`
+
+Current runtime behavior:
+- Authentication is enforced on all `/api/contacts` routes.
+- Scope-specific policy enforcement is enforced in routing and returns `403` when required scope is missing.
+
+Required scopes by endpoint:
+- `GET /api/contacts` -> `contacts.read`
+- `GET /api/contacts/{id}` -> `contacts.read`
+- `POST /api/contacts` -> `contacts.write`
+- `PUT /api/contacts/{id}` -> `contacts.write`
+- `DELETE /api/contacts/{id}` -> `contacts.delete` or `contacts.write`
 
 Endpoints:
-- `GET /api/contacts` (`contacts.read`)
-- `GET /api/contacts/{id}` (`contacts.read`)
-- `POST /api/contacts` (`contacts.write`)
-- `PUT /api/contacts/{id}` (`contacts.write`)
-- `DELETE /api/contacts/{id}` (`contacts.write`)
+- `GET /api/contacts`
+- `GET /api/contacts/{id}`
+- `POST /api/contacts`
+- `PUT /api/contacts/{id}`
+- `DELETE /api/contacts/{id}`
 
 Example request headers:
 ```http

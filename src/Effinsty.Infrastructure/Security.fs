@@ -43,11 +43,13 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
                 let sessionId = Guid.NewGuid().ToString("N")
                 let userId = UserId.value user.Id |> string
                 let tenantId = TenantId.value tenant.TenantId
+                let accessScopes = "contacts.read contacts.write contacts.delete"
 
                 let accessClaims =
                     [ Claim(JwtRegisteredClaimNames.Sub, userId)
                       Claim(ClaimTypes.NameIdentifier, userId)
                       Claim(ClaimTypes.Name, user.Username)
+                      Claim("scope", accessScopes)
                       Claim("tenant", tenantId)
                       Claim("sid", sessionId)
                       Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")) ]

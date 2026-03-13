@@ -1,0 +1,43 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: hsl(var(--bg));
+  color: hsl(var(--text));
+  font-family: Manrope, 'Avenir Next', 'Segoe UI', sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+p {
+  margin: 0;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid hsl(var(--focus));
+  outline-offset: 2px;
+}

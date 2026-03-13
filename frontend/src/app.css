@@ -1,0 +1,8 @@
+@import './lib/styles/tokens.css';
+@import './lib/styles/base.css';
+@import './lib/styles/utilities.css';
+@import './lib/styles/motion.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -1,0 +1,22 @@
+:root {
+  --bg: 210 20% 98%;
+  --surface: 0 0% 100%;
+  --surface-muted: 210 20% 96%;
+  --text: 222 47% 11%;
+  --text-muted: 215 16% 42%;
+  --primary: 214 88% 47%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 163 78% 36%;
+  --accent-foreground: 0 0% 100%;
+  --success: 142 70% 36%;
+  --warning: 38 92% 50%;
+  --danger: 0 84% 60%;
+  --info: 199 89% 48%;
+  --border: 214 28% 88%;
+  --focus: 214 88% 47%;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px hsl(222 47% 11% / 0.08);
+  --shadow-md: 0 8px 24px hsl(222 47% 11% / 0.1);
+}
