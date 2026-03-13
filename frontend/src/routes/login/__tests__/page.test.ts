@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 import { RequestError } from '$lib/api/errors';
 import { authStore } from '$lib/stores/auth.store';
+import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 
 vi.mock('$lib/api/auth', () => ({
@@ -28,7 +29,9 @@ describe('login page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authStore.reset();
+    sessionStore.reset();
     tenantStore.reset();
+    window.history.replaceState({}, '', '/login');
   });
 
   it('shows validation errors for empty required fields', async () => {
@@ -40,13 +43,14 @@ describe('login page', () => {
     expect(loginMock).not.toHaveBeenCalled();
   });
 
-  it('submits login and redirects to dashboard on success', async () => {
+  it('submits login and redirects to sanitized returnTo on success', async () => {
     loginMock.mockResolvedValue({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
       expiresAt: '2026-03-12T12:00:00Z',
     });
 
+    window.history.replaceState({}, '', '/login?returnTo=%2Fdashboard%2Fcontacts%3Fpage%3D2');
     render(LoginPage);
 
     await fireEvent.input(screen.getByLabelText('Tenant ID'), {
@@ -69,10 +73,11 @@ describe('login page', () => {
     });
 
     await waitFor(() => {
-      expect(gotoMock).toHaveBeenCalledWith('/dashboard');
+      expect(gotoMock).toHaveBeenCalledWith('/dashboard/contacts?page=2');
     });
 
     expect(get(authStore).isAuthenticated).toBe(true);
+    expect(get(sessionStore).refreshToken).toBe('refresh-token');
   });
 
   it('maps backend auth failures into visible error text', async () => {
@@ -106,6 +111,8 @@ describe('login page', () => {
   });
 
   it('redirects authenticated users away from login route', async () => {
+    window.history.replaceState({}, '', '/login?returnTo=%2Fdashboard%2Fsettings');
+
     authStore.completeLogin({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -115,7 +122,15 @@ describe('login page', () => {
     render(LoginPage);
 
     await waitFor(() => {
-      expect(gotoMock).toHaveBeenCalledWith('/dashboard');
+      expect(gotoMock).toHaveBeenCalledWith('/dashboard/settings');
     });
+  });
+
+  it('shows reason message when redirected from invalid tenant guard', async () => {
+    window.history.replaceState({}, '', '/login?reason=invalid-tenant');
+
+    render(LoginPage);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Tenant context is invalid.');
   });
 });

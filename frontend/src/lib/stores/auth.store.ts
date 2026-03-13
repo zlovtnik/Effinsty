@@ -4,7 +4,6 @@ import type { AuthTokens } from '$lib/api/auth';
 export interface AuthState {
   isAuthenticated: boolean;
   accessToken: string | null;
-  refreshToken: string | null;
   expiresAt: string | null;
   loading: boolean;
   error: string | null;
@@ -13,7 +12,6 @@ export interface AuthState {
 const initialState: AuthState = {
   isAuthenticated: false,
   accessToken: null,
-  refreshToken: null,
   expiresAt: null,
   loading: false,
   error: null,
@@ -34,8 +32,15 @@ function createAuthStore() {
       set({
         isAuthenticated: true,
         accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
         expiresAt: session.expiresAt,
+        loading: false,
+        error: null,
+      }),
+    setSession: (accessToken: string, expiresAt: string) =>
+      set({
+        isAuthenticated: true,
+        accessToken,
+        expiresAt,
         loading: false,
         error: null,
       }),

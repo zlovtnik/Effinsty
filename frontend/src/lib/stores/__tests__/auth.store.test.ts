@@ -11,7 +11,6 @@ describe('authStore', () => {
     expect(get(authStore)).toEqual({
       isAuthenticated: false,
       accessToken: null,
-      refreshToken: null,
       expiresAt: null,
       loading: false,
       error: null,
@@ -35,7 +34,6 @@ describe('authStore', () => {
     expect(get(authStore)).toMatchObject({
       isAuthenticated: true,
       accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       expiresAt: '2026-03-12T12:00:00Z',
       loading: false,
       error: null,
@@ -54,10 +52,21 @@ describe('authStore', () => {
     expect(get(authStore)).toEqual({
       isAuthenticated: false,
       accessToken: null,
-      refreshToken: null,
       expiresAt: null,
       loading: false,
       error: 'Invalid credentials.',
+    });
+  });
+
+  it('updates active access token on refresh success', () => {
+    authStore.setSession('next-access-token', '2026-03-13T12:00:00Z');
+
+    expect(get(authStore)).toEqual({
+      isAuthenticated: true,
+      accessToken: 'next-access-token',
+      expiresAt: '2026-03-13T12:00:00Z',
+      loading: false,
+      error: null,
     });
   });
 });

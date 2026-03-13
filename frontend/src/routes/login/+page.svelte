@@ -1,179 +1,103 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import { get } from 'svelte/store';
+  import type { Snippet } from 'svelte';
   import { cubicOut } from 'svelte/easing';
   import { fade, fly } from 'svelte/transition';
-  import { login } from '$lib/api/auth';
-  import { authStore } from '$lib/stores/auth.store';
-  import { tenantStore } from '$lib/stores/tenant.store';
-  import { isRequestError } from '$lib/api/errors';
-  import { announce } from '$lib/utils/a11y';
-  import { track } from '$lib/utils/telemetry';
   import { attachHeroEnhancement } from '$lib/utils/motion-adapter';
+  import {
+    LoginController,
+    type LoginAlertView,
+    type LoginFieldView,
+    type LoginLibraryItem,
+    type LoginPrinciple,
+  } from './login.controller.svelte';
 
-  type FieldName = 'tenantId' | 'username' | 'password';
+  interface LoginPageProps {
+    fieldSnippet?: Snippet<[LoginFieldView]>;
+    alertSnippet?: Snippet<[LoginAlertView]>;
+    principleSnippet?: Snippet<[LoginPrinciple, number]>;
+    librarySnippet?: Snippet<[LoginLibraryItem, number]>;
+  }
+
+  let { fieldSnippet, alertSnippet, principleSnippet, librarySnippet }: LoginPageProps = $props();
 
   const MOTION = {
     fast: 120,
     base: 180,
     stagger: 40,
   } as const;
+  const controller = new LoginController();
 
-  const animationLibraries = [
-    {
-      name: 'Motion.dev',
-      href: 'https://motion.dev/',
-      summary: 'Framework-agnostic motion engine for advanced gesture and layout effects.',
-    },
-    {
-      name: 'Svelte Magic UI',
-      href: 'https://www.sveltemagicui.com/',
-      summary: 'Drop-in animated Svelte components with premium polish.',
-    },
-    {
-      name: 'Svelte Aceternity UI',
-      href: 'https://github.com/TheComputerM/awesome-svelte',
-      summary: 'Flashier hero patterns such as moving borders and beams.',
-    },
-    {
-      name: 'Ori-UI',
-      href: 'https://sveltesociety.dev/?tags=ui-library',
-      summary: 'Open-source component library for Svelte + TypeScript.',
-    },
-  ];
-
-  const principles = [
-    '120-180ms transitions for premium responsiveness',
-    'Staggered entrances for visual hierarchy',
-    'Keyed fades for clean state changes',
-    'Reduced-motion support as a baseline',
-  ];
-
-  let tenantId = get(tenantStore).tenantId ?? '';
-  let username = '';
-  let password = '';
-  let formError = '';
-  let formDetails: string[] = [];
-  let correlationId = '';
-  let liveMessage = '';
-  let alertKey = 0;
-
-  let fieldErrors: Record<FieldName, string> = {
-    tenantId: '',
-    username: '',
-    password: '',
-  };
-
-  onMount(() => {
-    const unsubscribe = authStore.subscribe((state) => {
-      if (state.isAuthenticated) {
-        void goto('/dashboard');
-      }
-    });
-
-    return () => unsubscribe();
-  });
-
-  function updateField(field: FieldName, value: string): void {
-    if (field === 'tenantId') tenantId = value;
-    if (field === 'username') username = value;
-    if (field === 'password') password = value;
-
-    if (fieldErrors[field]) {
-      fieldErrors = { ...fieldErrors, [field]: '' };
-    }
-  }
-
-  function createCorrelationId(): string {
-    if (typeof globalThis.crypto?.randomUUID === 'function') {
-      return globalThis.crypto.randomUUID();
-    }
-
-    return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-  }
-
-  function validateForm(): boolean {
-    const nextErrors: Record<FieldName, string> = {
-      tenantId: '',
-      username: '',
-      password: '',
-    };
-
-    if (!tenantId.trim()) nextErrors.tenantId = 'Tenant ID is required.';
-    if (!username.trim()) nextErrors.username = 'Username is required.';
-    if (!password.trim()) nextErrors.password = 'Password is required.';
-
-    fieldErrors = nextErrors;
-    return !Object.values(nextErrors).some(Boolean);
-  }
-
-  async function handleSubmit(event: SubmitEvent) {
-    event.preventDefault();
-
-    formError = '';
-    formDetails = [];
-    correlationId = '';
-    liveMessage = '';
-
-    if (!validateForm()) {
-      const message = 'Please complete all required fields.';
-      formError = message;
-      liveMessage = message;
-      announce(message, 'assertive');
-      return;
-    }
-
-    const safeTenantId = tenantId.trim();
-    const safeUsername = username.trim();
-    const requestCorrelationId = createCorrelationId();
-
-    authStore.startLogin();
-    tenantStore.setTenant(safeTenantId);
-    track('login_attempt', { tenantId: safeTenantId });
-
-    try {
-      const tokens = await login(
-        safeTenantId,
-        { username: safeUsername, password },
-        requestCorrelationId
-      );
-
-      authStore.completeLogin(tokens);
-      track('login_success', { tenantId: safeTenantId });
-
-      liveMessage = 'Signed in successfully. Redirecting to dashboard.';
-      announce(liveMessage);
-      await goto('/dashboard');
-    } catch (error) {
-      let message = 'Unable to sign in.';
-      let details: string[] = [];
-      let resolvedCorrelationId = requestCorrelationId;
-
-      if (isRequestError(error)) {
-        message = error.appError.message;
-        details = error.appError.details;
-        resolvedCorrelationId = error.appError.correlationId || requestCorrelationId;
-      } else if (error instanceof Error && error.message) {
-        message = error.message;
-      }
-
-      formError = message;
-      formDetails = details;
-      correlationId = resolvedCorrelationId;
-      liveMessage = message;
-      alertKey += 1;
-
-      authStore.failLogin(message);
-      track('login_failure', { tenantId: safeTenantId, correlationId: resolvedCorrelationId });
-      announce(message, 'assertive');
-    }
-  }
+  onMount(() => controller.mount());
 </script>
 
 <svelte:head>
   <title>Sign In | Effinsty</title>
 </svelte:head>
+
+{#snippet defaultPrincipleSnippet(principle: LoginPrinciple, index: number)}
+  <span class="chip" in:fade={{ duration: MOTION.base, delay: MOTION.stagger * index, easing: cubicOut }}>
+    {principle}
+  </span>
+{/snippet}
+
+{#snippet defaultLibrarySnippet(item: LoginLibraryItem, index: number)}
+  <li
+    class="library-card"
+    in:fly={{
+      y: 8,
+      duration: MOTION.base,
+      delay: MOTION.stagger * (index + 1),
+      easing: cubicOut,
+    }}
+  >
+    <a href={item.href} target="_blank" rel="noopener noreferrer">{item.name}</a>
+    <p>{item.summary}</p>
+  </li>
+{/snippet}
+
+{#snippet defaultFieldSnippet(field: LoginFieldView)}
+  <div
+    class="field-row"
+    in:fly={{ y: 6, duration: MOTION.base, delay: MOTION.stagger * field.delayIndex, easing: cubicOut }}
+  >
+    <label for={field.id}>{field.label}</label>
+    <input
+      id={field.id}
+      name={field.name}
+      type={field.type}
+      autocomplete={field.autocomplete}
+      value={field.value}
+      aria-invalid={Boolean(field.error)}
+      aria-describedby={field.error ? field.errorId : undefined}
+      oninput={(event) =>
+        controller.updateField(field.key, (event.currentTarget as HTMLInputElement).value)}
+      required
+    />
+    {#if field.error}
+      <p id={field.errorId} class="field-error">{field.error}</p>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet defaultAlertSnippet(alert: LoginAlertView)}
+  <div class="form-alert" role="alert" in:fade={{ duration: MOTION.fast }} out:fade={{ duration: MOTION.fast }}>
+    <p>{alert.message}</p>
+    {#if alert.details.length > 0}
+      <ul>
+        {#each alert.details as detail}
+          <li>{detail}</li>
+        {/each}
+      </ul>
+    {/if}
+    {#if alert.correlationId}
+      <p class="correlation">
+        Correlation ID:
+        <code>{alert.correlationId}</code>
+      </p>
+    {/if}
+  </div>
+{/snippet}
 
 <main class="login-shell">
   <aside
@@ -190,131 +114,64 @@
       </p>
 
       <div class="principle-grid" aria-label="Motion principles">
-        {#each principles as principle, index (principle)}
-          <span
-            class="chip"
-            in:fade={{ duration: MOTION.base, delay: MOTION.stagger * index, easing: cubicOut }}
-          >
-            {principle}
-          </span>
+        {#each controller.principles as principle, index (principle)}
+          {#if principleSnippet}
+            {@render principleSnippet(principle, index)}
+          {:else}
+            {@render defaultPrincipleSnippet(principle, index)}
+          {/if}
         {/each}
       </div>
 
       <ul class="library-list" aria-label="Animation libraries">
-        {#each animationLibraries as item, index (item.name)}
-          <li
-            class="library-card"
-            in:fly={{
-              y: 8,
-              duration: MOTION.base,
-              delay: MOTION.stagger * (index + 1),
-              easing: cubicOut,
-            }}
-          >
-            <a href={item.href} target="_blank" rel="noopener noreferrer">{item.name}</a>
-            <p>{item.summary}</p>
-          </li>
+        {#each controller.animationLibraries as item, index (item.name)}
+          {#if librarySnippet}
+            {@render librarySnippet(item, index)}
+          {:else}
+            {@render defaultLibrarySnippet(item, index)}
+          {/if}
         {/each}
       </ul>
     </div>
   </aside>
 
   <section class="login-panel" in:fly={{ y: 10, duration: MOTION.base, easing: cubicOut }}>
-    <form class="login-card" on:submit={handleSubmit} novalidate aria-labelledby="login-title">
-      <p class="sr-only" aria-live="polite" aria-atomic="true">{liveMessage}</p>
+    <form
+      class="login-card"
+      onsubmit={(event) => void controller.handleSubmit(event as SubmitEvent)}
+      novalidate
+      aria-labelledby="login-title"
+    >
+      <p class="sr-only" aria-live="polite" aria-atomic="true">{controller.liveMessage}</p>
 
       <p class="eyebrow">Welcome back</p>
       <h2 id="login-title">Sign in to your workspace</h2>
       <p class="card-copy">Use tenant-scoped credentials to access your dashboard.</p>
 
-      <div class="field-row" in:fly={{ y: 6, duration: MOTION.base, delay: MOTION.stagger, easing: cubicOut }}>
-        <label for="tenant-id">Tenant ID</label>
-        <input
-          id="tenant-id"
-          name="tenant-id"
-          type="text"
-          autocomplete="organization"
-          value={tenantId}
-          aria-invalid={Boolean(fieldErrors.tenantId)}
-          aria-describedby={fieldErrors.tenantId ? 'tenant-id-error' : undefined}
-          on:input={(event) => updateField('tenantId', (event.currentTarget as HTMLInputElement).value)}
-          required
-        />
-        {#if fieldErrors.tenantId}
-          <p id="tenant-id-error" class="field-error">{fieldErrors.tenantId}</p>
-        {/if}
-      </div>
+      {#if controller.routeMessage}
+        <div class="context-alert" role="status">{controller.routeMessage}</div>
+      {/if}
 
-      <div
-        class="field-row"
-        in:fly={{ y: 6, duration: MOTION.base, delay: MOTION.stagger * 2, easing: cubicOut }}
-      >
-        <label for="username">Username</label>
-        <input
-          id="username"
-          name="username"
-          type="text"
-          autocomplete="username"
-          value={username}
-          aria-invalid={Boolean(fieldErrors.username)}
-          aria-describedby={fieldErrors.username ? 'username-error' : undefined}
-          on:input={(event) => updateField('username', (event.currentTarget as HTMLInputElement).value)}
-          required
-        />
-        {#if fieldErrors.username}
-          <p id="username-error" class="field-error">{fieldErrors.username}</p>
+      {#each controller.fields as field (field.key)}
+        {#if fieldSnippet}
+          {@render fieldSnippet(field)}
+        {:else}
+          {@render defaultFieldSnippet(field)}
         {/if}
-      </div>
+      {/each}
 
-      <div
-        class="field-row"
-        in:fly={{ y: 6, duration: MOTION.base, delay: MOTION.stagger * 3, easing: cubicOut }}
-      >
-        <label for="password">Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autocomplete="current-password"
-          value={password}
-          aria-invalid={Boolean(fieldErrors.password)}
-          aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-          on:input={(event) => updateField('password', (event.currentTarget as HTMLInputElement).value)}
-          required
-        />
-        {#if fieldErrors.password}
-          <p id="password-error" class="field-error">{fieldErrors.password}</p>
-        {/if}
-      </div>
-
-      {#if formError}
-        {#key alertKey}
-          <div
-            class="form-alert"
-            role="alert"
-            in:fade={{ duration: MOTION.fast }}
-            out:fade={{ duration: MOTION.fast }}
-          >
-            <p>{formError}</p>
-            {#if formDetails.length > 0}
-              <ul>
-                {#each formDetails as detail}
-                  <li>{detail}</li>
-                {/each}
-              </ul>
-            {/if}
-            {#if correlationId}
-              <p class="correlation">
-                Correlation ID:
-                <code>{correlationId}</code>
-              </p>
-            {/if}
-          </div>
+      {#if controller.uiView.showAlert}
+        {#key controller.alertKey}
+          {#if alertSnippet}
+            {@render alertSnippet(controller.alertView)}
+          {:else}
+            {@render defaultAlertSnippet(controller.alertView)}
+          {/if}
         {/key}
       {/if}
 
-      <button class="submit-button" type="submit" disabled={$authStore.loading} aria-busy={$authStore.loading}>
-        {$authStore.loading ? 'Signing in...' : 'Sign in'}
+      <button class="submit-button" type="submit" disabled={controller.uiView.isBusy} aria-busy={controller.uiView.isBusy}>
+        {controller.uiView.submitLabel}
       </button>
     </form>
   </section>
@@ -394,6 +251,17 @@
     margin: 0;
     color: hsl(var(--text) / 0.8);
     line-height: 1.5;
+  }
+
+  .context-alert {
+    border-radius: 10px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--surface-muted));
+    color: hsl(var(--text) / 0.85);
+    margin: 0;
+    padding: 0.7rem 0.8rem;
+    font-size: 0.95rem;
+    line-height: 1.4;
   }
 
   .principle-grid {

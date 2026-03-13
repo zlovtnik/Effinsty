@@ -1,4 +1,4 @@
-import { request } from '$lib/api/client';
+import { requestWithAuth } from '$lib/api/authenticated';
 import { RequestError, toNetworkError } from '$lib/api/errors';
 
 export interface ContactResponse {
@@ -70,7 +70,7 @@ export function listContacts(
     pageSize: String(pageSize),
   });
 
-  return request<PagedResponse<ContactResponse>>(`/contacts?${params.toString()}`, {
+  return requestWithAuth<PagedResponse<ContactResponse>>(`/contacts?${params.toString()}`, {
     method: 'GET',
     tenantId,
     accessToken,
@@ -80,7 +80,7 @@ export function listContacts(
 
 export function getContact(tenantId: string, accessToken: string, id: string, correlationId?: string) {
   const contactId = requireContactId(id, tenantId, correlationId);
-  return request<ContactResponse>(`/contacts/${contactId}`, {
+  return requestWithAuth<ContactResponse>(`/contacts/${contactId}`, {
     method: 'GET',
     tenantId,
     accessToken,
@@ -94,7 +94,7 @@ export function createContact(
   payload: ContactCreateRequest,
   correlationId?: string
 ) {
-  return request<ContactResponse>('/contacts', {
+  return requestWithAuth<ContactResponse>('/contacts', {
     method: 'POST',
     body: payload,
     tenantId,
@@ -110,7 +110,7 @@ export function updateContact(
   payload: ContactUpdateRequest,
   correlationId?: string
 ) {
-  return request<ContactResponse>(`/contacts/${id}`, {
+  return requestWithAuth<ContactResponse>(`/contacts/${id}`, {
     method: 'PUT',
     body: payload,
     tenantId,
@@ -121,7 +121,7 @@ export function updateContact(
 
 export function deleteContact(tenantId: string, accessToken: string, id: string, correlationId?: string) {
   const contactId = requireContactId(id, tenantId, correlationId);
-  return request<{ success: boolean }>(`/contacts/${contactId}`, {
+  return requestWithAuth<{ success: boolean }>(`/contacts/${contactId}`, {
     method: 'DELETE',
     tenantId,
     accessToken,

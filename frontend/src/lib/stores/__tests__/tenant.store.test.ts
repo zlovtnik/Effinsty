@@ -10,6 +10,8 @@ describe('tenantStore', () => {
   it('starts with no selected tenant', () => {
     expect(get(tenantStore)).toEqual({
       tenantId: null,
+      status: 'unknown',
+      invalidReason: null,
       loading: false,
       error: null,
     });
@@ -20,8 +22,35 @@ describe('tenantStore', () => {
 
     expect(get(tenantStore)).toEqual({
       tenantId: 'tenant-a',
+      status: 'unknown',
+      invalidReason: null,
       loading: false,
       error: null,
+    });
+  });
+
+  it('marks tenant as resolved after successful bootstrap', () => {
+    tenantStore.setTenant('tenant-a');
+    tenantStore.resolveTenant();
+
+    expect(get(tenantStore)).toEqual({
+      tenantId: 'tenant-a',
+      status: 'resolved',
+      invalidReason: null,
+      loading: false,
+      error: null,
+    });
+  });
+
+  it('marks tenant as invalid when backend rejects tenant context', () => {
+    tenantStore.invalidateTenant('Unknown tenant id.', 'tenant-a');
+
+    expect(get(tenantStore)).toEqual({
+      tenantId: 'tenant-a',
+      status: 'invalid',
+      invalidReason: 'Unknown tenant id.',
+      loading: false,
+      error: 'Unknown tenant id.',
     });
   });
 });
