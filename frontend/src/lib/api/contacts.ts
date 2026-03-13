@@ -65,9 +65,14 @@ export function listContacts(
   pageSize = 20,
   correlationId?: string
 ) {
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : 1;
+  const safePageSize = Number.isFinite(pageSize)
+    ? Math.min(100, Math.max(1, Math.trunc(pageSize)))
+    : 20;
+
   const params = new URLSearchParams({
-    page: String(page),
-    pageSize: String(pageSize),
+    page: String(safePage),
+    pageSize: String(safePageSize),
   });
 
   return requestWithAuth<PagedResponse<ContactResponse>>(`/contacts?${params.toString()}`, {
@@ -110,13 +115,14 @@ export function updateContact(
   payload: ContactUpdateRequest,
   correlationId?: string
 ) {
-  return requestWithAuth<ContactResponse>(`/contacts/${id}`, {
+  const contactId = requireContactId(id, tenantId, correlationId);
+  return requestWithAuth<ContactResponse>(`/contacts/${contactId}`, {
     method: 'PUT',
     body: payload,
     tenantId,
     accessToken,
     correlationId,
-  }).then((response) => requireBody(response, `/contacts/${id}`));
+  }).then((response) => requireBody(response, `/contacts/${contactId}`));
 }
 
 export function deleteContact(tenantId: string, accessToken: string, id: string, correlationId?: string) {

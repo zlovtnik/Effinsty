@@ -5,6 +5,8 @@
   import { get } from 'svelte/store';
   import { buildLoginRedirectPath, currentPathWithQuery } from '$lib/auth/navigation';
   import { logoutCurrentSession } from '$lib/api/authenticated';
+  import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import ToastRegion from '$lib/components/common/ToastRegion.svelte';
   import { authStore } from '$lib/stores/auth.store';
   import { tenantStore } from '$lib/stores/tenant.store';
 
@@ -66,6 +68,8 @@
   </header>
   {@render children?.()}
 </main>
+<ConfirmDialog />
+<ToastRegion />
 
 <style>
   .dashboard-shell {
