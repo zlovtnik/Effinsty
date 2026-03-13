@@ -8,6 +8,8 @@ type OracleOptions = {
     TnsAdmin: string
     DataSource: string
     ConnectionTimeoutSeconds: int
+    UserId: string
+    Password: string
 }
 
 [<CLIMutable>]

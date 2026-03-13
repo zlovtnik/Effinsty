@@ -22,8 +22,16 @@ type OracleConnectionFactory(options: IOptions<OracleOptions>, logger: ILogger<O
 
                 let timeout = if config.ConnectionTimeoutSeconds <= 0 then 30 else config.ConnectionTimeoutSeconds
 
+                let authSegment =
+                    if String.IsNullOrWhiteSpace(config.UserId) then
+                        "User Id=/"
+                    elif String.IsNullOrWhiteSpace(config.Password) then
+                        $"User Id={config.UserId}"
+                    else
+                        $"User Id={config.UserId};Password={config.Password}"
+
                 let connectionString =
-                    $"User Id=/;Data Source={dataSource};Connection Timeout={timeout}"
+                    $"{authSegment};Data Source={dataSource};Connection Timeout={timeout}"
 
                 let sw = Stopwatch.StartNew()
                 let conn = new OracleConnection(connectionString)

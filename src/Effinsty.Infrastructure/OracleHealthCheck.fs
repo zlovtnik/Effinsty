@@ -23,7 +23,15 @@ type OracleConnectivityHealthCheck(options: IOptions<OracleOptions>, logger: ILo
 
                     try
                         let timeout = if config.ConnectionTimeoutSeconds <= 0 then 30 else config.ConnectionTimeoutSeconds
-                        let connectionString = $"User Id=/;Data Source={config.DataSource};Connection Timeout={timeout}"
+                        let authSegment =
+                            if String.IsNullOrWhiteSpace(config.UserId) then
+                                "User Id=/"
+                            elif String.IsNullOrWhiteSpace(config.Password) then
+                                $"User Id={config.UserId}"
+                            else
+                                $"User Id={config.UserId};Password={config.Password}"
+
+                        let connectionString = $"{authSegment};Data Source={config.DataSource};Connection Timeout={timeout}"
                         use conn = new OracleConnection(connectionString)
                         do! conn.OpenAsync(ct)
                         let! _ = conn.ExecuteScalarAsync<int>(CommandDefinition("SELECT 1 FROM DUAL", cancellationToken = ct))
