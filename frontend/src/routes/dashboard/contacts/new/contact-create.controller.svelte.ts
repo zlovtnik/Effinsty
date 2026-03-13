@@ -8,6 +8,7 @@ import {
 import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
+import { announce } from '$lib/utils/a11y';
 import { get } from 'svelte/store';
 
 function createCorrelationId(): string {
@@ -54,11 +55,13 @@ export class ContactCreateController {
         details: [],
         correlationId: '',
       };
+      announce('Session context is missing. Please sign in again.', 'assertive');
       this.isSubmitting = false;
       return;
     }
 
     try {
+      announce('Creating contact.');
       const created = await createContact(
         tenantState.tenantId,
         authState.accessToken,
@@ -67,6 +70,7 @@ export class ContactCreateController {
       );
 
       uiStore.enqueueNotification('success', 'Contact created successfully.');
+      announce('Contact created successfully.');
       await goto(`/dashboard/contacts/${created.id}`);
     } catch (error) {
       if (isRequestError(error)) {
@@ -82,6 +86,7 @@ export class ContactCreateController {
           correlationId: '',
         };
       }
+      announce(this.error.message, 'assertive');
     } finally {
       this.isSubmitting = false;
     }

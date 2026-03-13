@@ -8,7 +8,7 @@ body {
   padding: 0;
   background: hsl(var(--bg));
   color: hsl(var(--text));
-  font-family: Manrope, 'Avenir Next', 'Segoe UI', sans-serif;
+  font-family: var(--font-family-sans);
   line-height: 1.5;
 }
 
@@ -38,6 +38,7 @@ select {
 }
 
 :focus-visible {
-  outline: 2px solid hsl(var(--focus));
-  outline-offset: 2px;
+  outline: var(--focus-outline);
+  outline-offset: var(--ring-offset);
+  box-shadow: var(--focus-ring);
 }

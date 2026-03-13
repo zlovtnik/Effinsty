@@ -5,6 +5,7 @@
   import type { ContactUpdateRequest } from '$lib/api/contacts';
   import ContactForm from '$lib/components/contacts/ContactForm.svelte';
   import ErrorDetailsPanel from '$lib/components/contacts/ErrorDetailsPanel.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { ContactEditController } from './contact-edit.controller.svelte';
 
   const controller = new ContactEditController();
@@ -22,7 +23,7 @@
 <section class="contact-edit container-page">
   <header class="header">
     <h2>Edit Contact</h2>
-    <button type="button" class="secondary" onclick={() => void controller.cancel(contactId)}>Back</button>
+    <Button type="button" variant="secondary" onclick={() => void controller.cancel(contactId)}>Back</Button>
   </header>
 
   {#if controller.state === 'loading'}
@@ -35,7 +36,7 @@
         details={controller.error.details}
         correlationId={controller.error.correlationId}
       />
-      <button class="secondary" type="button" onclick={() => void controller.retry(contactId)}>Retry</button>
+      <Button type="button" variant="secondary" onclick={() => void controller.retry(contactId)}>Retry</Button>
     </div>
   {:else if controller.formData}
     {#if controller.error.message}
@@ -59,9 +60,9 @@
     <div class="delete-zone surface-card">
       <h3>Danger zone</h3>
       <p>Deleting removes this contact permanently.</p>
-      <button type="button" class="danger" onclick={() => void controller.deleteById(contactId)}>
+      <Button type="button" variant="danger" onclick={() => void controller.deleteById(contactId)}>
         {controller.isDeleting ? 'Deleting...' : 'Delete contact'}
-      </button>
+      </Button>
     </div>
   {/if}
 </section>
@@ -104,23 +105,9 @@
     margin: 0;
   }
 
-  button {
+  .delete-zone :global(button),
+  .header :global(button) {
     font: inherit;
     border-radius: var(--radius-sm);
-    border: 1px solid transparent;
-    padding: 0.4rem 0.62rem;
-    cursor: pointer;
-  }
-
-  .secondary {
-    background: hsl(var(--surface-muted));
-    color: hsl(var(--text));
-    border-color: hsl(var(--border));
-  }
-
-  .danger {
-    width: fit-content;
-    background: hsl(var(--danger));
-    color: white;
   }
 </style>

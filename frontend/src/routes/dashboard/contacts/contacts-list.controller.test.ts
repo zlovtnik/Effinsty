@@ -72,4 +72,14 @@ describe('ContactsListController delete flow', () => {
     expect(deleteContactMock).toHaveBeenCalledTimes(1);
     expect(listContactsMock).toHaveBeenCalledTimes(2);
   });
+
+  it('ignores page changes above available pages', async () => {
+    const controller = new ContactsListController();
+    await controller.mount();
+
+    await controller.changePage(2);
+
+    expect(controller.page).toBe(1);
+    expect(listContactsMock).toHaveBeenCalledTimes(1);
+  });
 });

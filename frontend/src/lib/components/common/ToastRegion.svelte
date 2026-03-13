@@ -20,7 +20,7 @@
         <strong>{typeToLabel[toast.type]}</strong>
         <p>{toast.message}</p>
       </div>
-      <button type="button" class="toast-dismiss" onclick={() => dismiss(toast.id)} aria-label="Dismiss notification">
+      <button type="button" class="toast-dismiss" on:click={() => dismiss(toast.id)} aria-label="Dismiss notification">
         Dismiss
       </button>
     </article>

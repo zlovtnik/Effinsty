@@ -49,7 +49,7 @@
       <select
         value={String(pageSize)}
         disabled={isBusy}
-        onchange={(event) => onPageSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
+        on:change={(event) => onPageSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
       >
         <option value="20">20</option>
         <option value="50">50</option>
@@ -57,8 +57,8 @@
       </select>
     </label>
 
-    <button type="button" onclick={previous} disabled={isBusy || page <= 1}>Previous</button>
-    <button type="button" onclick={next} disabled={isBusy || page >= totalPages}>Next</button>
+    <button type="button" on:click={previous} disabled={isBusy || page <= 1}>Previous</button>
+    <button type="button" on:click={next} disabled={isBusy || page >= totalPages}>Next</button>
   </div>
 </nav>
 

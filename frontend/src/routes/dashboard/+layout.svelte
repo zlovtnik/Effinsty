@@ -62,7 +62,7 @@
 <main class="dashboard-shell">
   <header class="shell-header">
     <h1>Dashboard Shell</h1>
-    <button class="signout-button" type="button" onclick={() => void handleSignOut()} disabled={isSigningOut}>
+    <button class="signout-button" type="button" on:click={() => void handleSignOut()} disabled={isSigningOut}>
       {isSigningOut ? 'Signing out...' : 'Sign out'}
     </button>
   </header>

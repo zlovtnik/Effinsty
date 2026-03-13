@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { deleteContact, listContacts, type ContactResponse } from '$lib/api/contacts';
 import { isRequestError } from '$lib/api/errors';
+import { announce } from '$lib/utils/a11y';
 import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
@@ -86,7 +87,7 @@ export class ContactsListController {
   }
 
   async changePage(nextPage: number): Promise<void> {
-    if (nextPage < 1 || nextPage === this.page || this.isBusy) {
+    if (nextPage < 1 || nextPage > this.totalPages || nextPage === this.page || this.isBusy) {
       return;
     }
 
@@ -106,6 +107,7 @@ export class ContactsListController {
   }
 
   async retry(): Promise<void> {
+    announce('Retrying to load contacts.');
     await this.loadContacts();
   }
 
@@ -134,11 +136,14 @@ export class ContactsListController {
       return;
     }
 
+    announce('Delete contact request submitted.');
+
     const authState = get(authStore);
     const tenantState = get(tenantStore);
 
     if (!authState.accessToken || !tenantState.tenantId) {
       uiStore.enqueueNotification('error', 'Session context is missing. Please sign in again.');
+      announce('Session context is missing. Please sign in again.', 'assertive');
       return;
     }
 
@@ -150,14 +155,17 @@ export class ContactsListController {
         createCorrelationId()
       );
       uiStore.enqueueNotification('success', 'Contact deleted.');
+      announce('Contact deleted.');
       await this.loadContacts();
     } catch (error) {
       const message = isRequestError(error) ? error.appError.message : 'Unable to delete contact.';
       uiStore.enqueueNotification('error', message);
+      announce(message, 'assertive');
     }
   }
 
   private async syncQueryAndReload(): Promise<void> {
+    announce('Loading contacts.');
     await goto(`/dashboard/contacts?page=${this.page}&pageSize=${this.pageSize}`, {
       replaceState: true,
       noScroll: true,
@@ -170,6 +178,7 @@ export class ContactsListController {
   private async loadContacts(): Promise<void> {
     this.isBusy = true;
     this.state = 'loading';
+    announce('Loading contacts.');
     this.error = {
       message: '',
       details: [],
@@ -186,6 +195,7 @@ export class ContactsListController {
         details: [],
         correlationId: '',
       };
+      announce('Session context is missing. Please sign in again.', 'assertive');
       this.isBusy = false;
       return;
     }
@@ -204,6 +214,12 @@ export class ContactsListController {
       this.page = response.page;
       this.pageSize = response.pageSize;
       this.state = response.items.length > 0 ? 'ready' : 'empty';
+      announce(
+        response.items.length > 0
+          ? `Loaded ${response.items.length} contacts on page ${response.page}.`
+          : 'No contacts found for the current filters.',
+        'polite'
+      );
     } catch (error) {
       this.state = 'error';
 
@@ -220,6 +236,7 @@ export class ContactsListController {
           correlationId: '',
         };
       }
+      announce(this.error.message, 'assertive');
     } finally {
       this.isBusy = false;
     }

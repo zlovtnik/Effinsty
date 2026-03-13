@@ -39,7 +39,12 @@ describe('login page', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Please complete all required fields.');
+    const alerts = await screen.findAllByRole('alert');
+    const visible = alerts.find(
+      (alert) => !alert.classList.contains('sr-only') && alert.textContent?.includes('Please complete all required fields.')
+    );
+    expect(visible).toBeTruthy();
+    expect(visible).toHaveTextContent('Please complete all required fields.');
     expect(loginMock).not.toHaveBeenCalled();
   });
 
@@ -53,13 +58,13 @@ describe('login page', () => {
     window.history.replaceState({}, '', '/login?returnTo=%2Fdashboard%2Fcontacts%3Fpage%3D2');
     render(LoginPage);
 
-    await fireEvent.input(screen.getByLabelText('Tenant ID'), {
+    await fireEvent.input(screen.getByLabelText(/Tenant ID/), {
       target: { value: 'tenant-a' },
     });
-    await fireEvent.input(screen.getByLabelText('Username'), {
+    await fireEvent.input(screen.getByLabelText(/Username/), {
       target: { value: 'alice' },
     });
-    await fireEvent.input(screen.getByLabelText('Password'), {
+    await fireEvent.input(screen.getByLabelText(/Password/), {
       target: { value: 'password' },
     });
 
@@ -94,13 +99,13 @@ describe('login page', () => {
 
     render(LoginPage);
 
-    await fireEvent.input(screen.getByLabelText('Tenant ID'), {
+    await fireEvent.input(screen.getByLabelText(/Tenant ID/), {
       target: { value: 'tenant-a' },
     });
-    await fireEvent.input(screen.getByLabelText('Username'), {
+    await fireEvent.input(screen.getByLabelText(/Username/), {
       target: { value: 'alice' },
     });
-    await fireEvent.input(screen.getByLabelText('Password'), {
+    await fireEvent.input(screen.getByLabelText(/Password/), {
       target: { value: 'wrong-pass' },
     });
 

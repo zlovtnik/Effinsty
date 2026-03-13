@@ -3,6 +3,7 @@
   import { get } from 'svelte/store';
   import { page } from '$app/stores';
   import ErrorDetailsPanel from '$lib/components/contacts/ErrorDetailsPanel.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { ContactDetailController } from './contact-detail.controller.svelte';
 
   const controller = new ContactDetailController();
@@ -16,7 +17,7 @@
 <section class="contact-detail container-page">
   <header class="header">
     <h2>Contact details</h2>
-    <button type="button" class="secondary" onclick={() => void controller.toList()}>Back to contacts</button>
+    <Button type="button" variant="secondary" onclick={() => void controller.toList()}>Back to contacts</Button>
   </header>
 
   {#if controller.state === 'loading'}
@@ -29,19 +30,19 @@
         details={controller.error.details}
         correlationId={controller.error.correlationId}
       />
-      <button class="secondary" type="button" onclick={() => void controller.retry(contactId)}>Retry</button>
+      <Button type="button" variant="secondary" onclick={() => void controller.retry(contactId)}>Retry</Button>
     </div>
   {:else if controller.contact}
     <article class="surface-card panel">
       <div class="panel-header">
         <h3>{controller.contact.firstName} {controller.contact.lastName}</h3>
         <div class="actions">
-          <button type="button" class="secondary" onclick={() => void controller.toEdit(controller.contact!.id)}>
+          <Button type="button" variant="secondary" onclick={() => void controller.toEdit(controller.contact!.id)}>
             Edit
-          </button>
-          <button type="button" class="danger" onclick={() => void controller.deleteById(controller.contact!.id)}>
+          </Button>
+          <Button type="button" variant="danger" onclick={() => void controller.deleteById(controller.contact!.id)}>
             {controller.isDeleting ? 'Deleting...' : 'Delete'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -153,22 +154,8 @@
     gap: 0.25rem;
   }
 
-  button {
+  .actions :global(button),
+  header :global(button) {
     font: inherit;
-    border-radius: var(--radius-sm);
-    border: 1px solid transparent;
-    padding: 0.4rem 0.62rem;
-    cursor: pointer;
-  }
-
-  .secondary {
-    background: hsl(var(--surface-muted));
-    color: hsl(var(--text));
-    border-color: hsl(var(--border));
-  }
-
-  .danger {
-    background: hsl(var(--danger));
-    color: white;
   }
 </style>

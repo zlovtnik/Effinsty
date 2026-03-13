@@ -34,15 +34,18 @@ describe('ContactForm', () => {
       onSubmit,
     });
 
-    await fireEvent.input(screen.getByLabelText('First name'), { target: { value: 'Ada' } });
-    await fireEvent.input(screen.getByLabelText('Last name'), { target: { value: 'Lovelace' } });
+    await fireEvent.input(screen.getByRole('textbox', { name: /First name/ }), { target: { value: 'Ada' } });
+    await fireEvent.input(screen.getByRole('textbox', { name: /Last name/ }), { target: { value: 'Lovelace' } });
 
-    await fireEvent.input(screen.getByLabelText('Key'), { target: { value: 'team' } });
-    await fireEvent.input(screen.getByLabelText('Value'), { target: { value: 'platform' } });
+    await fireEvent.input(screen.getAllByRole('textbox', { name: /Key/ })[0]!, { target: { value: 'team' } });
+    await fireEvent.input(screen.getAllByRole('textbox', { name: /Value/ })[0]!, { target: { value: 'platform' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Add metadata row' }));
 
-    const keyInputs = screen.getAllByLabelText('Key');
-    const valueInputs = screen.getAllByLabelText('Value');
+    const keyInputs = screen.getAllByRole('textbox', { name: /Key/ });
+    const valueInputs = screen.getAllByRole('textbox', { name: /Value/ });
+
+    expect(keyInputs).toHaveLength(2);
+    expect(valueInputs).toHaveLength(2);
 
     await fireEvent.input(keyInputs[1]!, { target: { value: 'TEAM' } });
     await fireEvent.input(valueInputs[1]!, { target: { value: 'core' } });
@@ -60,10 +63,10 @@ describe('ContactForm', () => {
       onSubmit,
     });
 
-    await fireEvent.input(screen.getByLabelText('First name'), { target: { value: ' Ada ' } });
-    await fireEvent.input(screen.getByLabelText('Last name'), { target: { value: ' Lovelace ' } });
-    await fireEvent.input(screen.getByLabelText('Email'), { target: { value: ' ADA@EXAMPLE.COM ' } });
-    await fireEvent.input(screen.getByLabelText('Phone'), { target: { value: '(555) 123-4567' } });
+    await fireEvent.input(screen.getByRole('textbox', { name: /First name/ }), { target: { value: ' Ada ' } });
+    await fireEvent.input(screen.getByRole('textbox', { name: /Last name/ }), { target: { value: ' Lovelace ' } });
+    await fireEvent.input(screen.getByRole('textbox', { name: /Email/ }), { target: { value: ' ADA@EXAMPLE.COM ' } });
+    await fireEvent.input(screen.getByRole('textbox', { name: /Phone/ }), { target: { value: '(555) 123-4567' } });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Create contact' }));
 

@@ -11,6 +11,7 @@ import { contactToFormData, type ContactFormData } from '$lib/contacts/contact-f
 import { authStore } from '$lib/stores/auth.store';
 import { tenantStore } from '$lib/stores/tenant.store';
 import { uiStore } from '$lib/stores/ui.store';
+import { announce } from '$lib/utils/a11y';
 import { get } from 'svelte/store';
 
 function createCorrelationId(): string {
@@ -43,10 +44,12 @@ export class ContactEditController {
   });
 
   async mount(contactId: string): Promise<void> {
+    announce('Loading contact form.');
     await this.load(contactId);
   }
 
   async retry(contactId: string): Promise<void> {
+    announce('Retrying contact load.');
     await this.load(contactId);
   }
 
@@ -64,6 +67,7 @@ export class ContactEditController {
         details: [],
         correlationId: '',
       };
+      announce('Session context is missing. Please sign in again.', 'assertive');
       return;
     }
 
@@ -75,6 +79,7 @@ export class ContactEditController {
     };
 
     try {
+      announce('Updating contact.');
       const updated = await updateContact(
         tenantState.tenantId,
         authState.accessToken,
@@ -86,6 +91,7 @@ export class ContactEditController {
       this.contact = updated;
       this.formData = contactToFormData(updated);
       uiStore.enqueueNotification('success', 'Contact updated successfully.');
+      announce('Contact updated successfully.');
       await goto(`/dashboard/contacts/${updated.id}`);
     } catch (error) {
       if (isRequestError(error)) {
@@ -101,6 +107,7 @@ export class ContactEditController {
           correlationId: '',
         };
       }
+      announce(this.error.message, 'assertive');
     } finally {
       this.isSubmitting = false;
     }
@@ -128,10 +135,12 @@ export class ContactEditController {
 
     if (!authState.accessToken || !tenantState.tenantId) {
       uiStore.enqueueNotification('error', 'Session context is missing. Please sign in again.');
+      announce('Session context is missing. Please sign in again.', 'assertive');
       return;
     }
 
     this.isDeleting = true;
+    announce('Deleting contact.');
 
     try {
       await deleteContact(
@@ -141,10 +150,12 @@ export class ContactEditController {
         createCorrelationId()
       );
       uiStore.enqueueNotification('success', 'Contact deleted.');
+      announce('Contact deleted.');
       await goto('/dashboard/contacts');
     } catch (error) {
       const message = isRequestError(error) ? error.appError.message : 'Unable to delete contact.';
       uiStore.enqueueNotification('error', message);
+      announce(message, 'assertive');
     } finally {
       this.isDeleting = false;
     }
@@ -156,6 +167,7 @@ export class ContactEditController {
 
   private async load(contactId: string): Promise<void> {
     this.state = 'loading';
+    announce('Loading contact details.');
     this.error = {
       message: '',
       details: [],
@@ -172,6 +184,7 @@ export class ContactEditController {
         details: [],
         correlationId: '',
       };
+      announce('Session context is missing. Please sign in again.', 'assertive');
       return;
     }
 
@@ -186,6 +199,7 @@ export class ContactEditController {
       this.contact = found;
       this.formData = contactToFormData(found);
       this.state = 'ready';
+      announce('Contact loaded.');
     } catch (error) {
       this.state = 'error';
       if (isRequestError(error)) {
@@ -201,6 +215,8 @@ export class ContactEditController {
           correlationId: '',
         };
       }
+
+      announce(this.error.message, 'assertive');
     }
   }
 }

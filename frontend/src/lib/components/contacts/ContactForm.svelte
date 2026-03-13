@@ -11,6 +11,9 @@
   } from '$lib/contacts/contact-form';
   import type { MetadataRowErrors } from '$lib/contacts/contact-form';
   import type { ContactCreateRequest, ContactUpdateRequest } from '$lib/api/contacts';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Field from '$lib/components/ui/Field.svelte';
+  import Input from '$lib/components/ui/Input.svelte';
 
   interface Props {
     mode: ContactFormMode;
@@ -89,6 +92,20 @@
     };
   }
 
+  function metadataKeyError(rowId: string): string {
+    const rowError = metadataErrors[rowId];
+    if (!rowError) {
+      return '';
+    }
+
+    const errors = [rowError.key, rowError.duplicate].filter(Boolean);
+    return errors.join(' ');
+  }
+
+  function metadataValueError(rowId: string): string {
+    return metadataErrors[rowId]?.value ?? '';
+  }
+
   async function handleSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     formError = '';
@@ -116,122 +133,113 @@
   {/if}
 
   <div class="grid two-col">
-    <label>
-      First name
-      <input
+    <Field id="contact-first-name" label="First name" required error={fieldErrors.firstName}>
+      <Input
+        id="contact-first-name"
+        name="contact-first-name"
         type="text"
         value={data.firstName}
+        error={Boolean(fieldErrors.firstName)}
         aria-invalid={Boolean(fieldErrors.firstName)}
         oninput={(event) => setField('firstName', (event.currentTarget as HTMLInputElement).value)}
       />
-      {#if fieldErrors.firstName}
-        <span class="field-error">{fieldErrors.firstName}</span>
-      {/if}
-    </label>
+    </Field>
 
-    <label>
-      Last name
-      <input
+    <Field id="contact-last-name" label="Last name" required error={fieldErrors.lastName}>
+      <Input
+        id="contact-last-name"
+        name="contact-last-name"
         type="text"
         value={data.lastName}
+        error={Boolean(fieldErrors.lastName)}
         aria-invalid={Boolean(fieldErrors.lastName)}
         oninput={(event) => setField('lastName', (event.currentTarget as HTMLInputElement).value)}
       />
-      {#if fieldErrors.lastName}
-        <span class="field-error">{fieldErrors.lastName}</span>
-      {/if}
-    </label>
+    </Field>
 
-    <label>
-      Email
-      <input
+    <Field id="contact-email" label="Email" error={fieldErrors.email}>
+      <Input
+        id="contact-email"
+        name="contact-email"
         type="email"
         value={data.email}
+        error={Boolean(fieldErrors.email)}
         aria-invalid={Boolean(fieldErrors.email)}
         oninput={(event) => setField('email', (event.currentTarget as HTMLInputElement).value)}
       />
-      {#if fieldErrors.email}
-        <span class="field-error">{fieldErrors.email}</span>
-      {/if}
-    </label>
+    </Field>
 
-    <label>
-      Phone
-      <input
+    <Field id="contact-phone" label="Phone" error={fieldErrors.phone}>
+      <Input
+        id="contact-phone"
+        name="contact-phone"
         type="tel"
         value={data.phone}
+        error={Boolean(fieldErrors.phone)}
         aria-invalid={Boolean(fieldErrors.phone)}
         oninput={(event) => setField('phone', (event.currentTarget as HTMLInputElement).value)}
       />
-      {#if fieldErrors.phone}
-        <span class="field-error">{fieldErrors.phone}</span>
-      {/if}
-    </label>
+    </Field>
   </div>
 
-  <label class="address-row">
-    Address
-    <textarea
-      rows="3"
-      value={data.address}
-      aria-invalid={Boolean(fieldErrors.address)}
-      oninput={(event) => setField('address', (event.currentTarget as HTMLTextAreaElement).value)}
-    ></textarea>
-    {#if fieldErrors.address}
-      <span class="field-error">{fieldErrors.address}</span>
-    {/if}
-  </label>
+    <Field id="contact-address" label="Address" error={fieldErrors.address}>
+      <textarea
+        id="contact-address"
+        name="contact-address"
+        rows="3"
+        value={data.address}
+        aria-invalid={Boolean(fieldErrors.address)}
+        oninput={(event) => setField('address', (event.currentTarget as HTMLTextAreaElement).value)}
+      ></textarea>
+    </Field>
 
   <section class="metadata-block" aria-label="Metadata fields">
     <div class="metadata-header">
       <h3>Metadata</h3>
-      <button type="button" class="secondary" onclick={addMetadataRow}>Add metadata row</button>
+      <Button type="button" variant="ghost" onclick={addMetadataRow}>Add metadata row</Button>
     </div>
 
     {#each data.metadataRows as row (row.id)}
       <div class="metadata-row">
-        <label>
-          Key
-          <input
+        <Field id={`metadata-key-${row.id}`} label="Key" error={metadataKeyError(row.id)}>
+          <Input
+            id={`metadata-key-${row.id}`}
             type="text"
             value={row.key}
-            aria-invalid={Boolean(metadataErrors[row.id]?.key || metadataErrors[row.id]?.duplicate)}
+            error={Boolean(metadataKeyError(row.id))}
+            aria-invalid={Boolean(metadataKeyError(row.id))}
             oninput={(event) => setMetadataRow(row.id, 'key', (event.currentTarget as HTMLInputElement).value)}
           />
-          {#if metadataErrors[row.id]?.key}
-            <span class="field-error">{metadataErrors[row.id]?.key}</span>
-          {/if}
-          {#if metadataErrors[row.id]?.duplicate}
-            <span class="field-error">{metadataErrors[row.id]?.duplicate}</span>
-          {/if}
-        </label>
+        </Field>
 
-        <label>
-          Value
-          <input
+        <Field id={`metadata-value-${row.id}`} label="Value" error={metadataValueError(row.id)}>
+          <Input
+            id={`metadata-value-${row.id}`}
             type="text"
             value={row.value}
-            aria-invalid={Boolean(metadataErrors[row.id]?.value || metadataErrors[row.id]?.duplicate)}
+            error={Boolean(metadataValueError(row.id))}
+            aria-invalid={Boolean(metadataValueError(row.id))}
             oninput={(event) => setMetadataRow(row.id, 'value', (event.currentTarget as HTMLInputElement).value)}
           />
-          {#if metadataErrors[row.id]?.value}
-            <span class="field-error">{metadataErrors[row.id]?.value}</span>
-          {/if}
-        </label>
+        </Field>
 
-        <button type="button" class="ghost" onclick={() => removeMetadataRow(row.id)}>Remove</button>
+        <Button type="button" variant="danger-outline" onclick={() => removeMetadataRow(row.id)}>
+          Remove
+        </Button>
       </div>
     {/each}
   </section>
 
   <div class="actions">
     {#if onCancel}
-      <button type="button" class="secondary" onclick={onCancel} disabled={isSubmitting}>Cancel</button>
+      <Button type="button" variant="secondary" disabled={isSubmitting} onclick={onCancel}>
+        Cancel
+      </Button>
     {/if}
 
-    <button type="submit" class="primary" disabled={isSubmitting}>
+    <Button type="submit" variant="primary" loading={isSubmitting} disabled={isSubmitting}>
       {isSubmitting ? 'Saving...' : submitLabel}
-    </button>
+    </Button>
   </div>
 </form>
 
@@ -254,33 +262,18 @@
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 
-  label {
-    display: grid;
-    gap: 0.35rem;
-    font-size: 0.92rem;
-  }
-
-  input,
-  textarea,
-  button {
-    font: inherit;
-  }
-
-  input,
   textarea {
+    width: 100%;
+    min-height: 110px;
     border-radius: var(--radius-sm);
     border: 1px solid hsl(var(--border));
     padding: 0.45rem 0.55rem;
-    background: hsl(var(--surface));
+    font: inherit;
     color: hsl(var(--text));
+    background: hsl(var(--surface));
   }
 
-  .address-row textarea {
-    resize: vertical;
-  }
-
-  .form-error,
-  .field-error {
+  .form-error {
     color: hsl(var(--danger));
     font-size: 0.84rem;
   }
@@ -307,7 +300,7 @@
 
   .metadata-row {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 1fr;
     gap: 0.6rem;
     align-items: end;
   }
@@ -319,39 +312,13 @@
     flex-wrap: wrap;
   }
 
-  button {
-    border-radius: var(--radius-sm);
-    padding: 0.4rem 0.7rem;
-    border: 1px solid transparent;
-    cursor: pointer;
-  }
-
-  .primary {
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-  }
-
-  .secondary,
-  .ghost {
-    background: hsl(var(--surface-muted));
-    border-color: hsl(var(--border));
-    color: hsl(var(--text));
-  }
-
-  button:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-  }
-
-  @media (max-width: 768px) {
-    .metadata-row {
-      grid-template-columns: 1fr;
-    }
-  }
-
   @media (min-width: 769px) {
     .two-col {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metadata-row {
+      grid-template-columns: 1fr;
     }
   }
 </style>

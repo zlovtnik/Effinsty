@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import ErrorDetailsPanel from '$lib/components/contacts/ErrorDetailsPanel.svelte';
-  import Pagination from '$lib/components/contacts/Pagination.svelte';
+  import EmptyState from '$lib/components/ui/EmptyState.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Field from '$lib/components/ui/Field.svelte';
+  import Input from '$lib/components/ui/Input.svelte';
+  import Pagination from '$lib/components/ui/Pagination.svelte';
   import { ContactsListController } from './contacts-list.controller.svelte';
 
   const controller = new ContactsListController();
@@ -11,43 +15,53 @@
   });
 </script>
 
-<section class="contacts-page container-page">
+{#snippet newContactSnippet()}
+    <Button type="button" variant="primary" onclick={() => void controller.navigateToNew()}>
+      Create your first contact
+    </Button>
+{/snippet}
+
+<section class="contacts-page container-page" aria-busy={controller.isBusy}>
   <header class="page-header">
     <div>
       <h2>Contacts</h2>
       <p>Browse contacts with backend paging and page-scoped filtering.</p>
     </div>
-    <button type="button" class="primary" onclick={() => void controller.navigateToNew()}>New contact</button>
+      <Button type="button" variant="primary" onclick={() => void controller.navigateToNew()}>
+        New contact
+      </Button>
   </header>
 
   <section class="toolbar surface-card">
-    <label class="field">
-      {controller.searchLabel}
-      <input
+    <Field id="contacts-search" label={controller.searchLabel}>
+      <Input
+        id="contacts-search"
         type="search"
         placeholder="Search this page of contacts"
         value={controller.search}
         oninput={(event) => controller.updateSearch((event.currentTarget as HTMLInputElement).value)}
       />
-    </label>
+    </Field>
 
-    <label class="field small">
-      Sort
+    <Field id="contacts-sort" label="Sort">
       <select
+        id="contacts-sort"
+        class="sort-select"
         value={controller.sortKey}
-        onchange={(event) => controller.updateSort((event.currentTarget as HTMLSelectElement).value as 'updated_desc' | 'name_asc' | 'name_desc')}
+        onchange={(event) =>
+          controller.updateSort((event.currentTarget as HTMLSelectElement).value as 'updated_desc' | 'name_asc' | 'name_desc')}
       >
         <option value="updated_desc">Recently updated</option>
         <option value="name_asc">Name A-Z</option>
         <option value="name_desc">Name Z-A</option>
       </select>
-    </label>
+    </Field>
   </section>
 
   <p class="dg3-note">Results are limited to the currently loaded page.</p>
 
   {#if controller.state === 'loading'}
-    <div class="state-card" role="status">Loading contacts...</div>
+    <div class="state-card" role="status" aria-live="polite">Loading contacts...</div>
   {:else if controller.state === 'error'}
     <div class="state-stack">
       <ErrorDetailsPanel
@@ -56,14 +70,15 @@
         details={controller.error.details}
         correlationId={controller.error.correlationId}
       />
-      <button class="secondary" type="button" onclick={() => void controller.retry()}>Retry</button>
+      <Button type="button" variant="secondary" onclick={() => void controller.retry()}>
+        Retry
+      </Button>
     </div>
   {:else if controller.state === 'empty'}
-    <div class="state-card">
-      <h3>No contacts found</h3>
-      <p>There are no contacts on this page yet.</p>
-      <button type="button" class="primary" onclick={() => void controller.navigateToNew()}>Create your first contact</button>
+    <div class="empty-state-wrap">
+      <EmptyState title="No contacts found" message="There are no contacts on this page yet." ctaSlot={newContactSnippet} />
     </div>
+
     <Pagination
       page={controller.page}
       pageSize={controller.pageSize}
@@ -97,15 +112,15 @@
                 <td>{contact.phone ?? '—'}</td>
                 <td>{new Date(contact.updatedAt).toLocaleString()}</td>
                 <td class="actions-cell">
-                  <button type="button" class="ghost" onclick={() => void controller.navigateToDetails(contact.id)}>
+                  <Button type="button" variant="secondary" onclick={() => void controller.navigateToDetails(contact.id)}>
                     View
-                  </button>
-                  <button type="button" class="ghost" onclick={() => void controller.navigateToEdit(contact.id)}>
+                  </Button>
+                  <Button type="button" variant="secondary" onclick={() => void controller.navigateToEdit(contact.id)}>
                     Edit
-                  </button>
-                  <button type="button" class="danger" onclick={() => void controller.deleteFromList(contact)}>
+                  </Button>
+                  <Button type="button" variant="danger" onclick={() => void controller.deleteFromList(contact)}>
                     Delete
-                  </button>
+                  </Button>
                 </td>
               </tr>
             {/each}
@@ -156,36 +171,6 @@
     grid-template-columns: 1fr;
   }
 
-  .field {
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  .small {
-    max-width: 16rem;
-  }
-
-  input,
-  select,
-  button {
-    font: inherit;
-  }
-
-  input,
-  select {
-    border-radius: var(--radius-sm);
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface));
-    color: hsl(var(--text));
-    padding: 0.4rem 0.55rem;
-  }
-
-  .dg3-note {
-    margin: 0;
-    color: hsl(var(--text) / 0.78);
-    font-size: 0.9rem;
-  }
-
   .state-card,
   .state-stack {
     border: 1px solid hsl(var(--border));
@@ -230,33 +215,30 @@
     flex-wrap: wrap;
   }
 
+  .dg3-note {
+    margin: 0;
+    color: hsl(var(--text) / 0.78);
+    font-size: 0.9rem;
+  }
+
   .no-match {
     text-align: center;
     color: hsl(var(--text) / 0.75);
   }
 
-  button {
+  .sort-select {
     border-radius: var(--radius-sm);
-    border: 1px solid transparent;
-    padding: 0.35rem 0.62rem;
-    cursor: pointer;
-  }
-
-  .primary {
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-  }
-
-  .secondary,
-  .ghost {
-    background: hsl(var(--surface-muted));
-    border-color: hsl(var(--border));
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--surface));
     color: hsl(var(--text));
+    padding: 0.35rem 0.55rem;
+    font: inherit;
+    min-height: 34px;
   }
 
-  .danger {
-    background: hsl(var(--danger));
-    color: white;
+  .empty-state-wrap {
+    display: grid;
+    gap: 0.5rem;
   }
 
   @media (min-width: 860px) {

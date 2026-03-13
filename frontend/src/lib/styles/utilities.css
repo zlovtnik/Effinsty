@@ -1,7 +1,7 @@
 .container-page {
-  width: min(100%, 1200px);
+  width: min(100%, var(--container-width));
   margin-inline: auto;
-  padding-inline: 1rem;
+  padding-inline: var(--space-2);
 }
 
 .surface-card {
@@ -9,4 +9,55 @@
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.section-title {
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+.surface-title {
+  color: hsl(var(--text));
+}
+
+.surface-subtle {
+  color: hsl(var(--text-muted));
+}
+
+.ui-shell {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.state-card {
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--surface));
+}
+
+.state-alert {
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--surface-muted));
+}
+
+.motion-reduce * {
+  transition-duration: 1ms !important;
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
 }

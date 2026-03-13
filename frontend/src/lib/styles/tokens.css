@@ -2,21 +2,67 @@
   --bg: 210 20% 98%;
   --surface: 0 0% 100%;
   --surface-muted: 210 20% 96%;
+  --surface-elevated: 0 0% 100%;
+  --overlay: 222 47% 11%;
   --text: 222 47% 11%;
   --text-muted: 215 16% 42%;
+
   --primary: 214 88% 47%;
   --primary-foreground: 0 0% 100%;
   --accent: 163 78% 36%;
   --accent-foreground: 0 0% 100%;
+
   --success: 142 70% 36%;
   --warning: 38 92% 50%;
   --danger: 0 84% 60%;
   --info: 199 89% 48%;
+
+  --text-error: 0 78% 35%;
+
   --border: 214 28% 88%;
   --focus: 214 88% 47%;
+
+  --font-family-sans: Manrope, "Avenir Next", "Segoe UI", sans-serif;
+  --font-family-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px hsl(222 47% 11% / 0.08);
-  --shadow-md: 0 8px 24px hsl(222 47% 11% / 0.1);
+
+  --space-0: 0;
+  --space-0-5: 0.25rem;
+  --space-1: 0.5rem;
+  --space-1-5: 0.75rem;
+  --space-2: 1rem;
+  --space-2-5: 1.25rem;
+  --space-3: 1.5rem;
+  --space-4: 2rem;
+  --space-5: 2.5rem;
+  --space-6: 3rem;
+  --space-7: 3.5rem;
+  --space-8: 4rem;
+  --space-10: 5rem;
+  --space-12: 6rem;
+  --space-16: 8rem;
+  --space-20: 10rem;
+
+  --shadow-sm: var(--shadow-sm-token);
+  --shadow-md: var(--shadow-md-token);
+
+  --shadow-sm-token: 0 1px 2px hsl(222 47% 11% / 0.08);
+  --shadow-md-token: 0 8px 24px hsl(222 47% 11% / 0.1);
+
+  --ring-width: 2px;
+  --ring-offset: 2px;
+  --focus-ring: 0 0 0 var(--ring-offset) hsl(var(--primary) / 0.2);
+  --focus-outline: 2px solid hsl(var(--focus));
+
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 240ms;
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+
+  --container-width: 1200px;
+  --control-min-height: 44px;
+  --overlay-muted: hsl(222 47% 11% / 0.35);
 }

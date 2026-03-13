@@ -7,7 +7,9 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint \"src/**/*.{ts,js,svelte}\" \"vite.config.ts\" \"vitest.setup.ts\"",
+    "lint": "eslint \"src/**/*.{ts,js,svelte}\" \"vite.config.ts\" \"vitest.setup.ts\" && npm run lint:ui-colors",
+    "lint:ui-colors": "node scripts/lint-ui-colors.mjs",
+    "test:a11y": "vitest run src/routes/login/__tests__/axe.test.ts src/routes/dashboard/contacts/__tests__/axe.test.ts \"src/routes/dashboard/contacts/[id]/__tests__/axe.test.ts\"",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -37,6 +39,7 @@
     "svelte-check": "^4.1.5",
     "svelte-eslint-parser": "^0.43.0",
     "tailwindcss": "^3.4.17",
+    "vitest-axe": "0.1.0",
     "typescript": "^5.8.2",
     "vite": "^6.2.2",
     "vitest": "^3.2.4"

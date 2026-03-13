@@ -4,6 +4,9 @@
   import { cubicOut } from 'svelte/easing';
   import { fade, fly } from 'svelte/transition';
   import { attachHeroEnhancement } from '$lib/utils/motion-adapter';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Field from '$lib/components/ui/Field.svelte';
+  import Input from '$lib/components/ui/Input.svelte';
   import {
     LoginController,
     type LoginAlertView,
@@ -57,27 +60,20 @@
 {/snippet}
 
 {#snippet defaultFieldSnippet(field: LoginFieldView)}
-  <div
-    class="field-row"
-    in:fly={{ y: 6, duration: MOTION.base, delay: MOTION.stagger * field.delayIndex, easing: cubicOut }}
-  >
-    <label for={field.id}>{field.label}</label>
-    <input
+  <Field label={field.label} id={field.id} required error={field.error}>
+    <Input
       id={field.id}
       name={field.name}
       type={field.type}
       autocomplete={field.autocomplete}
       value={field.value}
-      aria-invalid={Boolean(field.error)}
-      aria-describedby={field.error ? field.errorId : undefined}
+      required
       oninput={(event) =>
         controller.updateField(field.key, (event.currentTarget as HTMLInputElement).value)}
-      required
+      aria-invalid={Boolean(field.error)}
+      aria-describedby={field.error ? field.errorId : undefined}
     />
-    {#if field.error}
-      <p id={field.errorId} class="field-error">{field.error}</p>
-    {/if}
-  </div>
+  </Field>
 {/snippet}
 
 {#snippet defaultAlertSnippet(alert: LoginAlertView)}
@@ -170,9 +166,17 @@
         {/key}
       {/if}
 
-      <button class="submit-button" type="submit" disabled={controller.uiView.isBusy} aria-busy={controller.uiView.isBusy}>
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        loading={controller.uiView.isBusy}
+        disabled={controller.uiView.isBusy}
+        aria-busy={controller.uiView.isBusy}
+        className="submit-button"
+      >
         {controller.uiView.submitLabel}
-      </button>
+      </Button>
     </form>
   </section>
 </main>
@@ -181,7 +185,7 @@
   :global(body) {
     color: hsl(var(--text));
     background: hsl(var(--bg));
-    font-family: Manrope, "Avenir Next", "Segoe UI", sans-serif;
+    font-family: var(--font-family-sans);
   }
 
   .login-shell {
@@ -211,7 +215,7 @@
     border-radius: 999px;
     background: radial-gradient(circle, hsl(var(--primary) / 0.2), transparent 70%);
     filter: blur(10px);
-    animation: pulseGlow 6s ease-in-out infinite;
+    animation: pulseGlow 6s var(--motion-ease-standard) infinite;
     pointer-events: none;
   }
 
@@ -254,7 +258,7 @@
   }
 
   .context-alert {
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     border: 1px solid hsl(var(--border));
     background: hsl(var(--surface-muted));
     color: hsl(var(--text) / 0.85);
@@ -288,19 +292,19 @@
 
   .library-card {
     border: 1px solid hsl(var(--border));
-    border-radius: var(--radius-md, 12px);
+    border-radius: var(--radius-md);
     padding: 0.75rem;
     background: hsl(var(--surface) / 0.96);
-    box-shadow: var(--shadow-sm, 0 1px 2px hsl(222 47% 11% / 0.08));
+    box-shadow: var(--shadow-sm);
     transition:
-      transform var(--motion-fast, 120ms) ease,
-      box-shadow var(--motion-fast, 120ms) ease;
+      transform var(--motion-fast) var(--motion-ease-standard),
+      box-shadow var(--motion-fast) var(--motion-ease-standard);
   }
 
   .library-card:hover,
   .library-card:focus-within {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-md, 0 8px 24px hsl(222 47% 11% / 0.1));
+    box-shadow: var(--shadow-md);
   }
 
   .library-card a {
@@ -329,56 +333,20 @@
 
   .login-card {
     width: min(100%, 28rem);
-    border-radius: var(--radius-lg, 16px);
+    border-radius: var(--radius-lg);
     border: 1px solid hsl(var(--border));
     background: hsl(var(--surface) / 0.98);
-    box-shadow: var(--shadow-md, 0 8px 24px hsl(222 47% 11% / 0.1));
+    box-shadow: var(--shadow-md);
     padding: clamp(1rem, 2.8vw, 1.75rem);
     display: grid;
     gap: 0.88rem;
   }
 
-  .field-row {
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  label {
-    font-size: 0.9rem;
-    font-weight: 700;
-  }
-
-  input {
-    min-height: 44px;
-    width: 100%;
-    border-radius: var(--radius-sm, 8px);
-    border: 1px solid hsl(var(--border));
-    padding: 0.6rem 0.72rem;
-    font: inherit;
-    color: hsl(var(--text));
-    background: hsl(var(--surface));
-    transition:
-      border-color var(--motion-fast, 120ms) ease,
-      box-shadow var(--motion-fast, 120ms) ease;
-  }
-
-  input:focus-visible {
-    outline: none;
-    border-color: hsl(var(--focus, var(--primary)));
-    box-shadow: 0 0 0 3px hsl(var(--focus, var(--primary)) / 0.2);
-  }
-
-  .field-error {
-    margin: 0;
-    color: hsl(var(--danger, 0 84% 60%));
-    font-size: 0.82rem;
-  }
-
   .form-alert {
-    border: 1px solid hsl(var(--danger, 0 84% 60%) / 0.4);
-    background: hsl(var(--danger, 0 84% 60%) / 0.08);
+    border: 1px solid hsl(var(--danger) / 0.4);
+    background: hsl(var(--danger) / 0.08);
     color: hsl(var(--text));
-    border-radius: var(--radius-sm, 8px);
+    border-radius: var(--radius-sm);
     padding: 0.72rem;
     display: grid;
     gap: 0.42rem;
@@ -401,24 +369,17 @@
   }
 
   .correlation code {
-    font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+    font-family: var(--font-family-mono);
     font-size: 0.78rem;
   }
 
   .submit-button {
-    min-height: 44px;
-    border: none;
-    border-radius: var(--radius-md, 12px);
-    font: inherit;
+    align-self: end;
     font-weight: 700;
-    color: hsl(var(--primary-foreground, 0 0% 100%));
+    min-height: 44px;
+    margin-top: 0.2rem;
     background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--accent)));
     box-shadow: 0 8px 20px hsl(var(--primary) / 0.24);
-    cursor: pointer;
-    transition:
-      transform var(--motion-fast, 120ms) ease,
-      box-shadow var(--motion-fast, 120ms) ease,
-      opacity var(--motion-fast, 120ms) ease;
   }
 
   .submit-button:hover:not(:disabled) {
@@ -431,25 +392,8 @@
   }
 
   .submit-button:focus-visible {
-    outline: 3px solid hsl(var(--focus, var(--primary)) / 0.3);
+    outline: 3px solid hsl(var(--focus) / 0.3);
     outline-offset: 2px;
-  }
-
-  .submit-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.72;
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 
   @media (min-width: 768px) {

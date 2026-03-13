@@ -133,7 +133,7 @@ describe('contacts page', () => {
       expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await fireEvent.click(screen.getByRole('button', { name: /Go to next page/i }));
 
     await waitFor(() => {
       expect(gotoMock).toHaveBeenCalledWith('/dashboard/contacts?page=2&pageSize=20', {
