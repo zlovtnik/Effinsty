@@ -1,6 +1,12 @@
 import '@testing-library/jest-dom/vitest';
+import { afterAll, afterEach, beforeAll } from 'vitest';
+import { server } from './src/lib/api/__tests__/msw/server';
 
-if (!Element.prototype.animate) {
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+if (typeof Element !== 'undefined' && !Element.prototype.animate) {
   Element.prototype.animate = function animate() {
     return {
       cancel() {},

@@ -12,6 +12,7 @@ export type AppErrorKind =
   | 'notFound'
   | 'conflict'
   | 'network'
+  | 'canceled'
   | 'timeout'
   | 'unexpected';
 
@@ -87,6 +88,15 @@ export function toTimeoutError(message = 'The request timed out.'): AppError {
   return {
     kind: 'timeout',
     code: 'timeout',
+    message,
+    details: [],
+  };
+}
+
+export function toCancellationError(message = 'The request was canceled.'): AppError {
+  return {
+    kind: 'canceled',
+    code: 'request_canceled',
     message,
     details: [],
   };

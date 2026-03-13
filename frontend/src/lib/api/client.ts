@@ -1,4 +1,5 @@
 import {
+  toCancellationError,
   RequestError,
   toAppError,
   toConfigurationError,
@@ -59,10 +60,26 @@ function toMethod(value?: string): string {
   return value?.toUpperCase() ?? 'GET';
 }
 
+function isReadableStream(value: unknown): value is ReadableStream {
+  return typeof ReadableStream !== 'undefined' && value instanceof ReadableStream;
+}
+
+function isBodyInit(value: unknown): value is BodyInit {
+  return (
+    typeof value === 'string' ||
+    value instanceof Blob ||
+    value instanceof FormData ||
+    value instanceof URLSearchParams ||
+    value instanceof ArrayBuffer ||
+    ArrayBuffer.isView(value) ||
+    isReadableStream(value)
+  );
+}
+
 function buildRequestHeaders(options: RequestOptions, correlationId: string): Headers {
   const headers = new Headers(options.headers ?? {});
 
-  if (!headers.has('Content-Type') && options.body !== undefined) {
+  if (!headers.has('Content-Type') && options.body !== undefined && !isBodyInit(options.body)) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -116,11 +133,21 @@ function validateHeaderPolicy(path: string, options: RequestOptions): void {
 }
 
 function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError';
+  if (error instanceof DOMException) {
+    return error.name === 'AbortError';
+  }
+
+  return error instanceof Error && error.name === 'AbortError';
 }
 
 function sleep(delayMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+function toRequestUrl(path: string, baseUrl?: string): string {
+  const requestBase = baseUrl ?? API_BASE_URL;
+  const origin = globalThis.location?.origin ?? 'http://localhost';
+  return new URL(`${requestBase}${path}`, origin).toString();
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T | null> {
@@ -136,19 +163,23 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const backoffMs = Math.max(options.retry?.backoffMs ?? DEFAULT_RETRY_BACKOFF_MS, 0);
 
   const body =
-    options.body === undefined || typeof options.body === 'string' || options.body instanceof FormData
-      ? (options.body as BodyInit | undefined)
+    options.body === undefined
+      ? undefined
+      : isBodyInit(options.body)
+        ? options.body
       : JSON.stringify(options.body);
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const timeoutController = new AbortController();
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    let abortRelay: (() => void) | undefined;
 
     if (options.signal) {
       if (options.signal.aborted) {
         timeoutController.abort();
       } else {
-        options.signal.addEventListener('abort', () => timeoutController.abort(), { once: true });
+        abortRelay = () => timeoutController.abort();
+        options.signal.addEventListener('abort', abortRelay, { once: true });
       }
     }
 
@@ -158,7 +189,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
     try {
       const headers = buildRequestHeaders(options, correlationId);
-      const response = await fetch(`${options.baseUrl ?? API_BASE_URL}${path}`, {
+      const response = await fetch(toRequestUrl(path, options.baseUrl), {
         ...options,
         method,
         headers,
@@ -189,6 +220,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       return parsedBody;
     } catch (error) {
       if (isAbortError(error)) {
+        if (options.signal?.aborted) {
+          throw new RequestError(toCancellationError());
+        }
+
         const timeoutError = new RequestError(toTimeoutError());
 
         if (method === 'GET' && attempt < attempts) {
@@ -216,6 +251,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     } finally {
       if (timeoutHandle !== undefined) {
         clearTimeout(timeoutHandle);
+      }
+
+      if (options.signal && abortRelay) {
+        options.signal.removeEventListener('abort', abortRelay);
       }
     }
   }

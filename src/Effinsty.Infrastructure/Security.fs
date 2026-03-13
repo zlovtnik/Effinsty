@@ -17,10 +17,32 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
     let config = options.Value
 
     let tokenHandler = JwtSecurityTokenHandler()
+    let legacyFallbackScopes = [ "contacts.read"; "contacts.write"; "contacts.delete" ]
 
     let signingCredentials () =
         let key = SymmetricSecurityKey(Encoding.UTF8.GetBytes(config.SigningKey))
         SigningCredentials(key, SecurityAlgorithms.HmacSha256)
+
+    let normalizeScopes (scopes: string seq) =
+        scopes
+        |> Seq.map (fun scope -> if isNull scope then String.Empty else scope.Trim())
+        |> Seq.filter (String.IsNullOrWhiteSpace >> not)
+        |> Seq.distinct
+        |> Seq.toList
+
+    let resolveAccessScopes (tenantId: string) =
+        let configuredScopes =
+            if not (obj.ReferenceEquals(config.TenantAccessScopes, null))
+               && config.TenantAccessScopes.ContainsKey(tenantId) then
+                config.TenantAccessScopes.[tenantId] |> Seq.ofList
+            elif not (obj.ReferenceEquals(config.DefaultAccessScopes, null)) then
+                config.DefaultAccessScopes |> Seq.ofList
+            else
+                Seq.empty
+
+        match normalizeScopes configuredScopes with
+        | [] -> legacyFallbackScopes
+        | resolved -> resolved
 
     let createToken (claims: Claim list) (expiresAt: DateTime) =
         let descriptor = SecurityTokenDescriptor()
@@ -43,7 +65,7 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
                 let sessionId = Guid.NewGuid().ToString("N")
                 let userId = UserId.value user.Id |> string
                 let tenantId = TenantId.value tenant.TenantId
-                let accessScopes = "contacts.read contacts.write contacts.delete"
+                let accessScopes = resolveAccessScopes tenantId |> String.concat " "
 
                 let accessClaims =
                     [ Claim(JwtRegisteredClaimNames.Sub, userId)

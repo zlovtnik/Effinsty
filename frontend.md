@@ -139,6 +139,10 @@ Backend surface:
 | `POST /api/auth/logout` | `{ "refreshToken": "string" }` | `{ "success": true }` |
 | `GET /api/contacts` | query: `page`, `pageSize` | `{ "items": ContactResponse[], "page": number, "pageSize": number, "totalCount": number }` |
 
+`POST /api/auth/logout` contract:
+- Requires both `Authorization: Bearer <accessToken>` and `{ "refreshToken": "string" }`.
+- Expected error semantics: `400` for invalid/malformed refresh payload, `401` for missing or invalid bearer token.
+
 `ContactResponse` keys:
 - `id`, `firstName`, `lastName`, `email`, `phone`, `address`, `metadata`, `createdAt`, `updatedAt`
 
@@ -170,17 +174,18 @@ HTTP client standards:
 
 ### 6.1 Canonical Token Handling
 
-- Access token: in-memory only (tracked in `auth.store` metadata/state).
-- Refresh token: held only in a module-scoped in-memory session variable inside the auth service implementation; never persisted in `auth.store`.
-- Refresh tokens are not written to browser storage and are regenerated per server/app instance.
-- Frontend must never persist tokens to `localStorage`/`sessionStorage`.
+- Target architecture: refresh token is issued as an `httpOnly`, `Secure`, `SameSite` cookie; access token remains in-memory only.
+- Transition state (v1.1 compatibility): `/api/auth/refresh` and `/api/auth/logout` still use `{ "refreshToken" }` request bodies until backend cookie refresh migration is complete.
+- During transition, refresh token remains non-persistent and is held in-memory only by frontend runtime/auth service code.
+- Frontend must not store auth tokens in JS-accessible browser storage (`localStorage`/`sessionStorage`).
 
 ### 6.2 Refresh Flow
 
-1. API returns `401` for expired/invalid access token.
-2. Frontend calls `/api/auth/refresh` with `{ refreshToken }` and tenant header.
-3. On success: replace in-memory access token, replay original request once.
-4. On failure: clear auth state and redirect to `/login`.
+1. On app initialization, attempt token refresh to restore an in-memory access token (cookie-based target model; body-token transition model until backend migration).
+2. API returns `401` for expired/invalid access token.
+3. Frontend calls `/api/auth/refresh` with tenant header (and `{ refreshToken }` while transition model is active).
+4. On success: replace in-memory access token, replay original request once.
+5. On failure: clear auth state and redirect to `/login`.
 
 ### 6.3 Route Protection
 
@@ -413,7 +418,7 @@ Implementation rules:
 
 ## 15) Security Requirements
 
-1. Never store auth tokens in browser persistent storage.
+1. Never store auth tokens in JS-accessible browser storage (`localStorage` or `sessionStorage`).
 2. Enforce strict CSP for production host.
 3. Validate and sanitize user-input metadata before render.
 4. Use `withCredentials` only for trusted API origin.
@@ -426,12 +431,13 @@ Implementation rules:
 
 ### 16.1 Unit and Component
 
-- Tools: Vitest + Testing Library (Svelte)
+- Tools: Vitest + Testing Library (Svelte) + MSW (Mock Service Worker)
 - Coverage priorities:
   - auth and tenant store behaviors
   - API error mapping
   - form validation and field-level errors
   - table/list sorting and pagination logic
+  - API contract-aligned handlers in tests must mirror section 5.2 request/response shapes
 
 ### 16.2 E2E
 

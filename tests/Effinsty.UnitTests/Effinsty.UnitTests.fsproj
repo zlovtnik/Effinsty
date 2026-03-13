@@ -9,6 +9,7 @@
     <Compile Include="ApiHandlerPayloadValidationTests.fs" />
     <Compile Include="DomainValidationTests.fs" />
     <Compile Include="ServicePipelineTests.fs" />
+    <Compile Include="JwtTokenProviderScopeTests.fs" />
     <Compile Include="ErrorHttpTests.fs" />
     <Compile Include="InfrastructureLoggingAndStartupTests.fs" />
   </ItemGroup>

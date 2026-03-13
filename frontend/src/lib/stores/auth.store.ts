@@ -45,7 +45,6 @@ function createAuthStore() {
         loading: false,
         error: message,
       }),
-    clear: () => set(initialState),
     reset: () => set(initialState),
   };
 }

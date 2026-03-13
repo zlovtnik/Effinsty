@@ -46,6 +46,18 @@ function requireBody<T>(payload: T | null, endpoint: string): T {
   return payload;
 }
 
+function requireContactId(id: string, tenantId: string, correlationId?: string): string {
+  const normalizedId = id.trim();
+  if (!normalizedId) {
+    const correlationContext = correlationId ? ` CorrelationId=${correlationId}.` : '';
+    throw new RequestError(
+      toNetworkError(`Contact id is required for tenant "${tenantId}".${correlationContext}`)
+    );
+  }
+
+  return normalizedId;
+}
+
 export function listContacts(
   tenantId: string,
   accessToken: string,
@@ -67,12 +79,13 @@ export function listContacts(
 }
 
 export function getContact(tenantId: string, accessToken: string, id: string, correlationId?: string) {
-  return request<ContactResponse>(`/contacts/${id}`, {
+  const contactId = requireContactId(id, tenantId, correlationId);
+  return request<ContactResponse>(`/contacts/${contactId}`, {
     method: 'GET',
     tenantId,
     accessToken,
     correlationId,
-  }).then((response) => requireBody(response, `/contacts/${id}`));
+  }).then((response) => requireBody(response, `/contacts/${contactId}`));
 }
 
 export function createContact(
@@ -107,10 +120,11 @@ export function updateContact(
 }
 
 export function deleteContact(tenantId: string, accessToken: string, id: string, correlationId?: string) {
-  return request<{ success: boolean }>(`/contacts/${id}`, {
+  const contactId = requireContactId(id, tenantId, correlationId);
+  return request<{ success: boolean }>(`/contacts/${contactId}`, {
     method: 'DELETE',
     tenantId,
     accessToken,
     correlationId,
-  }).then((response) => requireBody(response, `/contacts/${id}`));
+  }).then((response) => requireBody(response, `/contacts/${contactId}`));
 }

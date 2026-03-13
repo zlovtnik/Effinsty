@@ -205,4 +205,65 @@ describe('api/client request', () => {
 
     await assertion;
   });
+
+  it('does not retry caller-aborted requests and maps them to canceled errors', async () => {
+    const callerAbort = new AbortController();
+
+    globalThis.fetch = vi.fn((_, init?: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        const signal = init?.signal as AbortSignal | undefined;
+        signal?.addEventListener('abort', () => {
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+      });
+    }) as typeof fetch;
+
+    const promise = request('/contacts', {
+      method: 'GET',
+      tenantId: 'tenant-a',
+      accessToken: 'token-123',
+      signal: callerAbort.signal,
+      timeoutMs: 5_000,
+      retry: { attempts: 2, backoffMs: 0 },
+    });
+
+    callerAbort.abort();
+
+    await expect(promise).rejects.toSatisfy((error: unknown) => {
+      if (!isRequestError(error)) {
+        return false;
+      }
+
+      return error.appError.kind === 'canceled';
+    });
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not force JSON content-type for form data payloads', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const payload = new FormData();
+    payload.append('username', 'alice');
+
+    await request('/auth/login', {
+      method: 'POST',
+      tenantId: 'tenant-a',
+      body: payload,
+      retry: { attempts: 1, backoffMs: 0 },
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = new Headers(init.headers);
+
+    expect(headers.get('Content-Type')).toBeNull();
+    expect(init.body).toBe(payload);
+  });
 });

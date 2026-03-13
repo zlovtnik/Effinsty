@@ -30,6 +30,8 @@ type JwtOptions = {
     SigningKey: string
     AccessTokenMinutes: int
     RefreshTokenDays: int
+    DefaultAccessScopes: string list
+    TenantAccessScopes: Dictionary<string, string list>
 }
 
 [<CLIMutable>]

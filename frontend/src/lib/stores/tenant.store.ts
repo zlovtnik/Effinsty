@@ -7,7 +7,7 @@ export interface TenantState {
 }
 
 const initialState: TenantState = {
-  tenantId: 'tenant-a',
+  tenantId: null,
   loading: false,
   error: null,
 };
