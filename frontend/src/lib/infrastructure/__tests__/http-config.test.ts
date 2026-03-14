@@ -15,10 +15,10 @@ describe('HTTP config', () => {
         retryableStatuses: [502, 503, 504],
       },
       headers: {
-        contentType: 'application/json',
-        tenantId: 'X-Tenant-ID',
-        authorization: 'Authorization',
-        correlationId: 'X-Correlation-ID',
+        contentTypeValue: 'application/json',
+        tenantIdHeader: 'X-Tenant-ID',
+        authorizationHeader: 'Authorization',
+        correlationIdHeader: 'X-Correlation-ID',
       },
     });
   });

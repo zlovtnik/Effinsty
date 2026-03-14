@@ -16,7 +16,6 @@ describe('authStore', () => {
   it('starts unauthenticated', () => {
     expect(get(authStore)).toEqual({
       isAuthenticated: false,
-      accessToken: null,
       expiresAt: null,
       loading: false,
       error: null,
@@ -30,16 +29,13 @@ describe('authStore', () => {
     expect(get(authStore).error).toBeNull();
   });
 
-  it('stores in-memory auth tokens after login success', () => {
+  it('stores in-memory session metadata after login success', () => {
     authStore.completeLogin({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       expiresAt: TEST_SESSION_EXPIRY,
     });
 
     expect(get(authStore)).toMatchObject({
       isAuthenticated: true,
-      accessToken: 'access-token',
       expiresAt: TEST_SESSION_EXPIRY,
       loading: false,
       error: null,
@@ -48,8 +44,6 @@ describe('authStore', () => {
 
   it('clears session values on failed login', () => {
     authStore.completeLogin({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       expiresAt: TEST_SESSION_EXPIRY,
     });
 
@@ -57,19 +51,17 @@ describe('authStore', () => {
 
     expect(get(authStore)).toEqual({
       isAuthenticated: false,
-      accessToken: null,
       expiresAt: null,
       loading: false,
       error: 'Invalid credentials.',
     });
   });
 
-  it('updates active access token on refresh success', () => {
-    authStore.setSession('next-access-token', TEST_SESSION_EXPIRY);
+  it('supports setting authenticated state directly', () => {
+    authStore.setAuthenticated(TEST_SESSION_EXPIRY);
 
     expect(get(authStore)).toEqual({
       isAuthenticated: true,
-      accessToken: 'next-access-token',
       expiresAt: TEST_SESSION_EXPIRY,
       loading: false,
       error: null,
@@ -82,14 +74,11 @@ describe('authStore', () => {
     const localTenantStore = createTenantStore();
     const mockService: AuthService = {
       login: vi.fn().mockResolvedValue({
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
         expiresAt: TEST_SESSION_EXPIRY,
       }),
       refresh: vi.fn(),
       logout: vi.fn(),
-      isTokenExpired: vi.fn(),
-      getAuthHeader: vi.fn(),
+      isSessionExpired: vi.fn(),
     };
     const store = createAuthStore({
       authService: mockService,
@@ -102,18 +91,21 @@ describe('authStore', () => {
       password: 'password',
     });
 
-    expect(mockService.login).toHaveBeenCalledWith('tenant-a', {
-      username: 'alice',
-      password: 'password',
-    }, undefined);
+    expect(mockService.login).toHaveBeenCalledWith(
+      'tenant-a',
+      {
+        username: 'alice',
+        password: 'password',
+      },
+      undefined
+    );
     expect(get(store)).toMatchObject({
       isAuthenticated: true,
-      accessToken: 'access-token',
       expiresAt: TEST_SESSION_EXPIRY,
       loading: false,
       error: null,
     });
-    expect(localSessionStore.getSession().refreshToken).toBe('refresh-token');
+    expect(localSessionStore.getSession().expiresAt).toBe(TEST_SESSION_EXPIRY);
     expect(get(localTenantStore).status).toBe('resolved');
   });
 
@@ -124,13 +116,10 @@ describe('authStore', () => {
     const mockService: AuthService = {
       login: vi.fn(),
       refresh: vi.fn().mockResolvedValue({
-        accessToken: 'fresh-access-token',
-        refreshToken: 'refresh-token',
         expiresAt: TEST_SESSION_EXPIRY,
       }),
       logout: vi.fn(),
-      isTokenExpired: vi.fn(),
-      getAuthHeader: vi.fn(),
+      isSessionExpired: vi.fn(),
     };
     const store = createAuthStore({
       authService: mockService,
@@ -138,14 +127,11 @@ describe('authStore', () => {
       tenantStore: localTenantStore as typeof tenantStore,
     });
 
-    store.setSession('stale-access-token', TEST_SESSION_EXPIRY);
-    localSessionStore.setRefreshToken('refresh-token');
+    store.setAuthenticated(TEST_SESSION_EXPIRY);
     localTenantStore.resolveTenant('tenant-a');
 
-    const [first, second] = await Promise.all([store.refresh(), store.refresh()]);
+    await Promise.all([store.refresh(), store.refresh()]);
 
-    expect(first).toBe('fresh-access-token');
-    expect(second).toBe('fresh-access-token');
     expect(mockService.refresh).toHaveBeenCalledTimes(1);
   });
 });

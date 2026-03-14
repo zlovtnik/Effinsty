@@ -56,7 +56,7 @@ export function createTenantStore() {
         ...state,
         tenantId: tenantId ?? state.tenantId,
         status: error.kind === 'forbidden' ? 'invalid' : state.status,
-        invalidReason: error.kind === 'forbidden' ? error.message : null,
+        invalidReason: error.kind === 'forbidden' ? error.message : state.invalidReason,
         loading: false,
         error: error.message,
       })),

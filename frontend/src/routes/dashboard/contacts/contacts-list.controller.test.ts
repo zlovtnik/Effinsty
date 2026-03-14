@@ -22,7 +22,7 @@ describe('ContactsListController delete flow', () => {
     tenantStore.reset();
     uiStore.reset();
 
-    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
+    authStore.setAuthenticated();
     tenantStore.resolveTenant('tenant-a');
 
     listContactsMock.mockResolvedValue({
@@ -67,7 +67,7 @@ describe('ContactsListController delete flow', () => {
     await promise;
 
     expect(deleteContactMock).toHaveBeenCalledWith({
-      context: { tenantId: 'tenant-a', accessToken: 'access-token' },
+      context: { tenantId: 'tenant-a' },
       id: '11111111-1111-1111-1111-111111111111',
     });
     expect(listContactsMock).toHaveBeenCalledTimes(2);

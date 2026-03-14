@@ -4,7 +4,6 @@ import { clampPositiveInt } from '$lib/services/validation/validators';
 
 export interface SessionRequestContext {
   tenantId: string;
-  accessToken: string;
 }
 
 export interface ContactResponse {
@@ -98,10 +97,13 @@ function requireBody<T>(payload: T | null, endpoint: string): T {
 
 function requireContactId(id: string, tenantId: string, correlationId?: string): string {
   const normalizedId = id.trim();
-  if (!normalizedId) {
+  const hasSafeFormat = /^[A-Za-z0-9_-]+$/.test(normalizedId);
+  if (!normalizedId || !hasSafeFormat) {
     const correlationContext = correlationId ? ` CorrelationId=${correlationId}.` : '';
     throw new RequestError(
-      toNetworkError(`Contact id is required for tenant "${tenantId}".${correlationContext}`)
+      toNetworkError(
+        `Valid contact id is required for tenant "${tenantId}".${correlationContext}`
+      )
     );
   }
 
@@ -124,7 +126,6 @@ export function createContactsService(dependencies: ContactsServiceDependencies 
         await requestWithAuthImpl<PagedResponse<ContactResponse>>(`/contacts?${params.toString()}`, {
           method: 'GET',
           tenantId: context.tenantId,
-          accessToken: context.accessToken,
           correlationId,
         }),
         '/contacts'
@@ -136,7 +137,6 @@ export function createContactsService(dependencies: ContactsServiceDependencies 
         await requestWithAuthImpl<ContactResponse>(`/contacts/${contactId}`, {
           method: 'GET',
           tenantId: context.tenantId,
-          accessToken: context.accessToken,
           correlationId,
         }),
         `/contacts/${contactId}`
@@ -148,7 +148,6 @@ export function createContactsService(dependencies: ContactsServiceDependencies 
           method: 'POST',
           body: payload,
           tenantId: context.tenantId,
-          accessToken: context.accessToken,
           correlationId,
         }),
         '/contacts'
@@ -161,7 +160,6 @@ export function createContactsService(dependencies: ContactsServiceDependencies 
           method: 'PUT',
           body: payload,
           tenantId: context.tenantId,
-          accessToken: context.accessToken,
           correlationId,
         }),
         `/contacts/${contactId}`
@@ -173,7 +171,6 @@ export function createContactsService(dependencies: ContactsServiceDependencies 
         await requestWithAuthImpl<{ success: boolean }>(`/contacts/${contactId}`, {
           method: 'DELETE',
           tenantId: context.tenantId,
-          accessToken: context.accessToken,
           correlationId,
         }),
         `/contacts/${contactId}`

@@ -25,7 +25,7 @@ describe('contacts service', () => {
     });
 
     await service.list({
-      context: { tenantId: 'tenant-a', accessToken: 'token-123' },
+      context: { tenantId: 'tenant-a' },
       page: 0,
       pageSize: 999,
     });
@@ -33,7 +33,6 @@ describe('contacts service', () => {
     expect(requestWithAuthMock).toHaveBeenCalledWith('/contacts?page=1&pageSize=100', {
       method: 'GET',
       tenantId: 'tenant-a',
-      accessToken: 'token-123',
       correlationId: undefined,
     });
   });
@@ -41,7 +40,7 @@ describe('contacts service', () => {
   it('rejects blank contact ids before calling the transport', async () => {
     try {
       await service.get({
-        context: { tenantId: 'tenant-a', accessToken: 'token-123' },
+        context: { tenantId: 'tenant-a' },
         id: '   ',
       });
       throw new Error('Expected get to fail');
@@ -51,7 +50,7 @@ describe('contacts service', () => {
         return;
       }
 
-      expect(error.appError.message).toContain('Contact id is required');
+      expect(error.appError.message).toContain('Valid contact id is required');
     }
   });
 
@@ -59,12 +58,12 @@ describe('contacts service', () => {
     requestWithAuthMock.mockResolvedValue({ success: true });
 
     await service.update({
-      context: { tenantId: 'tenant-a', accessToken: 'token-123' },
+      context: { tenantId: 'tenant-a' },
       id: 'contact-1',
       payload: { firstName: 'Ada' },
     });
     await service.delete({
-      context: { tenantId: 'tenant-a', accessToken: 'token-123' },
+      context: { tenantId: 'tenant-a' },
       id: 'contact-1',
     });
 
@@ -72,13 +71,11 @@ describe('contacts service', () => {
       method: 'PUT',
       body: { firstName: 'Ada' },
       tenantId: 'tenant-a',
-      accessToken: 'token-123',
       correlationId: undefined,
     });
     expect(requestWithAuthMock).toHaveBeenNthCalledWith(2, '/contacts/contact-1', {
       method: 'DELETE',
       tenantId: 'tenant-a',
-      accessToken: 'token-123',
       correlationId: undefined,
     });
   });

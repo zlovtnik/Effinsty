@@ -40,10 +40,20 @@
     onFieldChange,
     onSubmit,
   }: Props = $props();
+
+  async function handleSubmit(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+
+    try {
+      await onSubmit(event);
+    } catch (error) {
+      console.error('Login submit failed.', error);
+    }
+  }
 </script>
 
 <section class="login-panel" in:fly={{ y: 10, duration: MOTION.base, easing: cubicOut }}>
-  <form class="login-card" onsubmit={(event) => void onSubmit(event as SubmitEvent)} novalidate aria-labelledby="login-title">
+  <form class="login-card" onsubmit={handleSubmit} novalidate aria-labelledby="login-title">
     <p class="sr-only" aria-live="polite" aria-atomic="true">{liveMessage}</p>
 
     <p class="eyebrow">Welcome back</p>

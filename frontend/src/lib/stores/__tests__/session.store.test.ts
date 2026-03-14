@@ -8,54 +8,44 @@ describe('sessionStore', () => {
     sessionStore.reset();
   });
 
-  it('starts without a refresh token', () => {
+  it('starts without an active session expiry', () => {
     expect(get(sessionStore)).toEqual({
-      refreshToken: null,
+      expiresAt: null,
     });
   });
 
-  it('stores refresh token in memory only', () => {
-    sessionStore.setRefreshToken('refresh-token');
+  it('stores session expiry metadata in memory only', () => {
+    sessionStore.setExpiresAt(TEST_SESSION_EXPIRY);
 
     expect(get(sessionStore)).toEqual({
-      refreshToken: 'refresh-token',
+      expiresAt: TEST_SESSION_EXPIRY,
     });
   });
 
-  it('clears refresh token during clear', () => {
-    sessionStore.setRefreshToken('refresh-token');
+  it('clears session expiry during clear', () => {
+    sessionStore.setExpiresAt(TEST_SESSION_EXPIRY);
     sessionStore.clear();
 
     expect(get(sessionStore)).toEqual({
-      refreshToken: null,
+      expiresAt: null,
     });
   });
 
-  it('stores the full token snapshot for lifecycle helpers', () => {
-    sessionStore.setTokens({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      expiresAt: TEST_SESSION_EXPIRY,
-    });
+  it('stores session snapshot for lifecycle helpers', () => {
+    sessionStore.setExpiresAt(TEST_SESSION_EXPIRY);
 
     expect(sessionStore.getSession()).toEqual({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       expiresAt: TEST_SESSION_EXPIRY,
     });
-    expect(sessionStore.hasRefreshToken()).toBe(true);
-    expect(sessionStore.isAccessTokenExpired()).toBe(false);
+    expect(sessionStore.isSessionExpired()).toBe(false);
   });
 
-  it('updates only access token fields when refreshing', () => {
-    sessionStore.setRefreshToken('refresh-token');
-    sessionStore.setAccessToken('access-token', '2000-01-01T00:00:00.000Z');
+  it('reports expired sessions', () => {
+    sessionStore.setExpiresAt('2000-01-01T00:00:00.000Z');
 
     expect(sessionStore.getSession()).toEqual({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       expiresAt: '2000-01-01T00:00:00.000Z',
     });
-    expect(sessionStore.isAccessTokenExpired()).toBe(true);
+    expect(sessionStore.isSessionExpired()).toBe(true);
   });
 });

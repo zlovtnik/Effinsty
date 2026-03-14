@@ -8,7 +8,7 @@ import {
 import {
   authService,
   type AuthService,
-  type AuthTokens,
+  type AuthSession,
   type LoginRequest,
 } from '$lib/services/auth/auth.service';
 import { sessionStore } from '$lib/stores/session.store';
@@ -17,7 +17,6 @@ import { trackAction, trackError } from '$lib/utils/telemetry';
 
 export interface AuthState {
   isAuthenticated: boolean;
-  accessToken: string | null;
   expiresAt: string | null;
   loading: boolean;
   error: string | null;
@@ -25,7 +24,6 @@ export interface AuthState {
 
 const initialState: AuthState = {
   isAuthenticated: false,
-  accessToken: null,
   expiresAt: null,
   loading: false,
   error: null,
@@ -33,7 +31,6 @@ const initialState: AuthState = {
 
 export interface AuthRequestContext {
   tenantId: string;
-  accessToken: string;
 }
 
 export interface AuthStoreDependencies {
@@ -47,7 +44,7 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
   const sessionStoreImpl = dependencies.sessionStore ?? sessionStore;
   const tenantStoreImpl = dependencies.tenantStore ?? tenantStore;
   const { subscribe, set, update } = writable<AuthState>(initialState);
-  let refreshInFlight: Promise<string> | null = null;
+  let refreshInFlight: Promise<void> | null = null;
 
   function getState(): AuthState {
     return get({ subscribe });
@@ -75,21 +72,24 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
         loading: true,
         error: null,
       })),
-    completeLogin: (session: AuthTokens) => {
-      sessionStoreImpl.setTokens(session);
+    completeLogin: (session: AuthSession) => {
+      sessionStoreImpl.setExpiresAt(session.expiresAt);
       set({
         isAuthenticated: true,
-        accessToken: session.accessToken,
         expiresAt: session.expiresAt,
         loading: false,
         error: null,
       });
     },
-    setSession: (accessToken: string, expiresAt: string) => {
-      sessionStoreImpl.setAccessToken(accessToken, expiresAt);
+    setAuthenticated: (expiresAt: string | null = null) => {
+      if (expiresAt) {
+        sessionStoreImpl.setExpiresAt(expiresAt);
+      } else {
+        sessionStoreImpl.clear();
+      }
+
       set({
         isAuthenticated: true,
-        accessToken,
         expiresAt,
         loading: false,
         error: null,
@@ -106,20 +106,19 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
       const state = getState();
       const tenantState = get(tenantStoreImpl);
 
-      if (!state.accessToken || !tenantState.tenantId || tenantState.status !== 'resolved') {
+      if (!state.isAuthenticated || !tenantState.tenantId || tenantState.status !== 'resolved') {
         throw new RequestError(toConfigurationError(message));
       }
 
       return {
         tenantId: tenantState.tenantId,
-        accessToken: state.accessToken,
       };
     },
     async login(
       tenantId: string,
       credentials: LoginRequest,
       correlationId?: string
-    ): Promise<AuthTokens> {
+    ): Promise<AuthSession> {
       update((state) => ({
         ...state,
         loading: true,
@@ -133,11 +132,10 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
 
       try {
         const session = await authServiceImpl.login(tenantId, credentials, correlationId);
-        sessionStoreImpl.setTokens(session);
+        sessionStoreImpl.setExpiresAt(session.expiresAt);
         tenantStoreImpl.resolveTenant(tenantId);
         set({
           isAuthenticated: true,
-          accessToken: session.accessToken,
           expiresAt: session.expiresAt,
           loading: false,
           error: null,
@@ -173,14 +171,13 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
         throw error;
       }
     },
-    async refresh(correlationId?: string): Promise<string> {
+    async refresh(correlationId?: string): Promise<void> {
       const tenantId = get(tenantStoreImpl).tenantId;
-      const refreshToken = sessionStoreImpl.getSession().refreshToken;
 
-      if (!tenantId || !refreshToken) {
+      if (!tenantId) {
         const error = new RequestError(
           toConfigurationError(
-            'Cannot refresh session: refresh token is not available in memory.'
+            'Cannot refresh session: tenant context is missing.'
           )
         );
         trackRefreshFailure(presentError(error), tenantId);
@@ -195,16 +192,11 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
           });
 
           try {
-            const next = await authServiceImpl.refresh(
-              tenantId,
-              { refreshToken },
-              correlationId
-            );
-            sessionStoreImpl.setTokens(next);
+            const next = await authServiceImpl.refresh(tenantId, correlationId);
+            sessionStoreImpl.setExpiresAt(next.expiresAt);
             tenantStoreImpl.resolveTenant(tenantId);
             set({
               isAuthenticated: true,
-              accessToken: next.accessToken,
               expiresAt: next.expiresAt,
               loading: false,
               error: null,
@@ -213,7 +205,6 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
               status: 'success',
               details: { tenantId },
             });
-            return next.accessToken;
           } catch (error) {
             trackRefreshFailure(
               presentError(error, {
@@ -229,12 +220,11 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
         })();
       }
 
-      return refreshInFlight;
+      await refreshInFlight;
     },
     async logout(correlationId?: string): Promise<void> {
       const state = getState();
       const tenantId = get(tenantStoreImpl).tenantId;
-      const refreshToken = sessionStoreImpl.getSession().refreshToken;
 
       try {
         trackAction('logout', {
@@ -242,13 +232,8 @@ export function createAuthStore(dependencies: AuthStoreDependencies = {}) {
           details: { tenantId: tenantId ?? undefined },
         });
 
-        if (tenantId && state.accessToken && refreshToken) {
-          await authServiceImpl.logout(
-            tenantId,
-            { refreshToken },
-            state.accessToken,
-            correlationId
-          );
+        if (tenantId && state.isAuthenticated) {
+          await authServiceImpl.logout(tenantId, correlationId);
         }
 
         trackAction('logout', {

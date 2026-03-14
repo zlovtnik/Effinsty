@@ -60,7 +60,7 @@ describe('contacts page', () => {
     tenantStore.reset();
     uiStore.reset();
 
-    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
+    authStore.setAuthenticated();
     tenantStore.resolveTenant('tenant-a');
     window.history.replaceState({}, '', '/dashboard/contacts?page=1&pageSize=20');
   });

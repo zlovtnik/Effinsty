@@ -7,14 +7,13 @@ import { server } from '$lib/api/__tests__/msw/server';
 
 const context = {
   tenantId: 'tenant-a',
-  accessToken: 'token-123',
 };
 
 describe('contacts api guards', () => {
   it('rejects getContact when id is empty', async () => {
     await expect(
       getContact({ context, id: '   ', correlationId: 'corr-empty-get' })
-    ).rejects.toThrow(/Contact id is required/);
+    ).rejects.toThrow(/Valid contact id is required/);
   });
 
   it('rejects updateContact when id is empty', async () => {
@@ -25,7 +24,7 @@ describe('contacts api guards', () => {
         payload: { firstName: 'Ada', lastName: 'Lovelace' },
         correlationId: 'corr-empty-update',
       })
-    ).rejects.toThrow(/Contact id is required/);
+    ).rejects.toThrow(/Valid contact id is required/);
   });
 
   it('rejects deleteContact when id is empty', async () => {
@@ -39,9 +38,15 @@ describe('contacts api guards', () => {
       }
 
       expect(error.appError.kind).toBe('network');
-      expect(error.appError.message).toContain('Contact id is required');
+      expect(error.appError.message).toContain('Valid contact id is required');
       expect(error.appError.message).toContain('tenant-a');
     }
+  });
+
+  it('rejects traversal-like ids before dispatch', async () => {
+    await expect(
+      getContact({ context, id: '../etc/passwd', correlationId: 'corr-invalid-id' })
+    ).rejects.toThrow(/Valid contact id is required/);
   });
 });
 

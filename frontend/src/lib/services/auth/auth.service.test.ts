@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMemorySessionStorage } from '$lib/infrastructure/storage/session-storage';
 import {
   createAuthService,
   type AuthService,
@@ -9,22 +8,17 @@ describe('auth service', () => {
   const httpClient = {
     post: vi.fn(),
   };
-  const sessionStorage = createMemorySessionStorage();
   let service: AuthService;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    sessionStorage.clear();
     service = createAuthService({
       httpClient: httpClient as never,
-      sessionStorage,
     });
   });
 
-  it('stores returned tokens on login', async () => {
+  it('returns session metadata on login', async () => {
     httpClient.post.mockResolvedValue({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       expiresAt: '2099-01-01T00:00:00.000Z',
     });
 
@@ -38,47 +32,30 @@ describe('auth service', () => {
       body: { username: 'alice', password: 'password' },
       correlationId: undefined,
     });
-    expect(result.refreshToken).toBe('refresh-token');
-    expect(sessionStorage.getSnapshot().refreshToken).toBe('refresh-token');
+    expect(result.expiresAt).toBe('2099-01-01T00:00:00.000Z');
   });
 
-  it('stores refreshed tokens on refresh', async () => {
+  it('calls refresh without requiring a token payload', async () => {
     httpClient.post.mockResolvedValue({
-      accessToken: 'fresh-access-token',
-      refreshToken: 'fresh-refresh-token',
       expiresAt: '2099-01-01T00:00:00.000Z',
     });
 
-    await service.refresh('tenant-a', {
-      refreshToken: 'old-refresh-token',
-    });
+    await service.refresh('tenant-a');
 
     expect(httpClient.post).toHaveBeenCalledWith('/auth/refresh', {
       tenantId: 'tenant-a',
-      body: { refreshToken: 'old-refresh-token' },
       correlationId: undefined,
     });
-    expect(sessionStorage.getSnapshot().accessToken).toBe('fresh-access-token');
   });
 
-  it('clears storage on logout success', async () => {
-    sessionStorage.setTokens({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      expiresAt: '2099-01-01T00:00:00.000Z',
-    });
+  it('calls logout with tenant context only', async () => {
     httpClient.post.mockResolvedValue({ success: true });
 
-    await service.logout(
-      'tenant-a',
-      { refreshToken: 'refresh-token' },
-      'access-token'
-    );
+    await service.logout('tenant-a');
 
-    expect(sessionStorage.getSnapshot()).toEqual({
-      accessToken: null,
-      refreshToken: null,
-      expiresAt: null,
+    expect(httpClient.post).toHaveBeenCalledWith('/auth/logout', {
+      tenantId: 'tenant-a',
+      correlationId: undefined,
     });
   });
 });

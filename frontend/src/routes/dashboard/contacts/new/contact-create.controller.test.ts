@@ -17,7 +17,7 @@ describe('ContactCreateController', () => {
     vi.clearAllMocks();
     authStore.reset();
     tenantStore.reset();
-    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
+    authStore.setAuthenticated();
     tenantStore.resolveTenant('tenant-a');
   });
 
@@ -41,7 +41,7 @@ describe('ContactCreateController', () => {
     });
 
     expect(createContactMock).toHaveBeenCalledWith({
-      context: { tenantId: 'tenant-a', accessToken: 'access-token' },
+      context: { tenantId: 'tenant-a' },
       payload: {
         firstName: 'Ada',
         lastName: 'Lovelace',

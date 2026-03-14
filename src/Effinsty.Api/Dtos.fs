@@ -12,11 +12,6 @@ type LoginRequest = {
 }
 
 [<CLIMutable>]
-type RefreshRequest = {
-    RefreshToken: string
-}
-
-[<CLIMutable>]
 type ContactCreateRequest = {
     FirstName: string
     LastName: string
@@ -37,9 +32,7 @@ type ContactUpdateRequest = {
 }
 
 [<CLIMutable>]
-type LoginResponse = {
-    AccessToken: string
-    RefreshToken: string
+type AuthSessionResponse = {
     ExpiresAt: DateTimeOffset
 }
 
@@ -73,10 +66,8 @@ type ErrorResponse = {
 }
 
 module Mapping =
-    let toLoginResponse (token: AuthToken) =
+    let toAuthSessionResponse (token: AuthToken) =
         {
-            AccessToken = token.AccessToken
-            RefreshToken = token.RefreshToken
             ExpiresAt = token.ExpiresAt
         }
 

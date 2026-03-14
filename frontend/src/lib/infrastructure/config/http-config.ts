@@ -5,10 +5,10 @@ export interface RetryPolicy {
 }
 
 export interface HttpHeaderConfig {
-  contentType: string;
-  tenantId: string;
-  authorization: string;
-  correlationId: string;
+  contentTypeValue: string;
+  tenantIdHeader: string;
+  authorizationHeader: string;
+  correlationIdHeader: string;
 }
 
 export interface HttpConfig {
@@ -32,10 +32,10 @@ export const HTTP_CONFIG: HttpConfig = {
     retryableStatuses: [502, 503, 504],
   },
   headers: {
-    contentType: 'application/json',
-    tenantId: 'X-Tenant-ID',
-    authorization: 'Authorization',
-    correlationId: 'X-Correlation-ID',
+    contentTypeValue: 'application/json',
+    tenantIdHeader: 'X-Tenant-ID',
+    authorizationHeader: 'Authorization',
+    correlationIdHeader: 'X-Correlation-ID',
   },
 };
 
@@ -50,11 +50,14 @@ export function resolveHttpConfig(overrides: HttpConfigOverrides = {}): HttpConf
         overrides.getRetry?.retryableStatuses ?? [...HTTP_CONFIG.getRetry.retryableStatuses],
     },
     headers: {
-      contentType: overrides.headers?.contentType ?? HTTP_CONFIG.headers.contentType,
-      tenantId: overrides.headers?.tenantId ?? HTTP_CONFIG.headers.tenantId,
-      authorization:
-        overrides.headers?.authorization ?? HTTP_CONFIG.headers.authorization,
-      correlationId: overrides.headers?.correlationId ?? HTTP_CONFIG.headers.correlationId,
+      contentTypeValue:
+        overrides.headers?.contentTypeValue ?? HTTP_CONFIG.headers.contentTypeValue,
+      tenantIdHeader:
+        overrides.headers?.tenantIdHeader ?? HTTP_CONFIG.headers.tenantIdHeader,
+      authorizationHeader:
+        overrides.headers?.authorizationHeader ?? HTTP_CONFIG.headers.authorizationHeader,
+      correlationIdHeader:
+        overrides.headers?.correlationIdHeader ?? HTTP_CONFIG.headers.correlationIdHeader,
     },
   };
 }

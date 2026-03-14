@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { cubicOut } from 'svelte/easing';
   import { fade, fly } from 'svelte/transition';
   import type { LoginLibraryItem, LoginPrinciple } from '$lib/auth/login-view';
@@ -14,13 +15,19 @@
     stagger: 40,
   } as const;
 
+  const prefersReducedMotion =
+    browser && typeof globalThis.matchMedia === 'function'
+      ? globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false;
+  const motionDuration = prefersReducedMotion ? 0 : MOTION.base;
+
   let { principles, animationLibraries }: Props = $props();
 </script>
 
 <aside
   class="hero-panel"
   use:attachHeroEnhancement={{ enabled: false }}
-  in:fly={{ y: 10, duration: MOTION.base, easing: cubicOut }}
+  in:fly={{ y: 10, duration: motionDuration, easing: cubicOut }}
 >
   <div class="hero-content">
     <p class="eyebrow">Effinsty Frontend</p>
@@ -31,8 +38,8 @@
     </p>
 
     <div class="principle-grid" aria-label="Motion principles">
-      {#each principles as principle, index (principle)}
-        <span class="chip" in:fade={{ duration: MOTION.base, delay: MOTION.stagger * index, easing: cubicOut }}>
+      {#each principles as principle, index (index)}
+        <span class="chip" in:fade={{ duration: motionDuration, delay: MOTION.stagger * index, easing: cubicOut }}>
           {principle}
         </span>
       {/each}
@@ -44,7 +51,7 @@
           class="library-card"
           in:fly={{
             y: 8,
-            duration: MOTION.base,
+            duration: motionDuration,
             delay: MOTION.stagger * (index + 1),
             easing: cubicOut,
           }}
@@ -84,6 +91,19 @@
     display: grid;
     gap: 1rem;
     padding: clamp(1.2rem, 4vw, 2.4rem);
+  }
+
+  @keyframes pulseGlow {
+    0%,
+    100% {
+      opacity: 0.6;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 1;
+      transform: scale(1.05);
+    }
   }
 
   .eyebrow {

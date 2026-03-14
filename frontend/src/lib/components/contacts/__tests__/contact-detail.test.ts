@@ -89,11 +89,18 @@ describe('ContactDetail', () => {
     expect(onDelete).toHaveBeenCalledWith('contact-1');
   });
 
-  it('shows delete-busy copy while deletion is active', () => {
+  it('disables delete action while deletion is active', async () => {
+    const onDelete = vi.fn();
     renderContactDetail({
       isDeleting: true,
+      onDelete,
     });
 
-    expect(screen.getByRole('button', { name: 'Deleting...' })).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Deleting...' });
+    expect(button).toBeInTheDocument();
+    expect(button).toBeDisabled();
+
+    await fireEvent.click(button);
+    expect(onDelete).not.toHaveBeenCalled();
   });
 });

@@ -7,20 +7,10 @@ function isTenantScopedPath(path: string): boolean {
   return path.startsWith('/auth/login') || path.startsWith('/auth/refresh') || path.startsWith('/auth/logout') || path.startsWith('/contacts');
 }
 
-function requiresAuthorization(path: string): boolean {
-  return path.startsWith('/auth/logout') || path.startsWith('/contacts');
-}
-
 function validateHeaderPolicy(path: string, options: RequestOptions): void {
   if (isTenantScopedPath(path) && !options.tenantId) {
     throw new RequestError(
       toConfigurationError(`Missing required tenant context for tenant-scoped path "${path}".`)
-    );
-  }
-
-  if (requiresAuthorization(path) && !options.accessToken) {
-    throw new RequestError(
-      toConfigurationError(`Missing bearer token for protected path "${path}".`)
     );
   }
 }

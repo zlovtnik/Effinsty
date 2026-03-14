@@ -44,4 +44,18 @@ describe('error mapper', () => {
       correlationId: 'corr-network',
     });
   });
+
+  it('keeps correlation id undefined when not present in payload or fallback', () => {
+    expect(
+      mapApiError(500, {
+        code: 'unexpected_error',
+        message: 'Server blew up.',
+        details: [],
+      })
+    ).toMatchObject({
+      kind: 'unexpected',
+      code: 'unexpected_error',
+      correlationId: undefined,
+    });
+  });
 });

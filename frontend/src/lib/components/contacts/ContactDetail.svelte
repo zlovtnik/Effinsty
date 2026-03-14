@@ -63,7 +63,18 @@
           <Button type="button" variant="secondary" onclick={() => void onEdit(contact.id)}>
             Edit
           </Button>
-          <Button type="button" variant="danger" onclick={() => void onDelete(contact.id)}>
+          <Button
+            type="button"
+            variant="danger"
+            disabled={isDeleting}
+            onclick={() => {
+              if (isDeleting) {
+                return;
+              }
+
+              void onDelete(contact.id);
+            }}
+          >
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
         </div>

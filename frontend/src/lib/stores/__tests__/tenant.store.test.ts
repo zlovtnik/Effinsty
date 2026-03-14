@@ -71,4 +71,22 @@ describe('tenantStore', () => {
       error: 'Network request failed.',
     });
   });
+
+  it('preserves invalid reason when applying non-forbidden errors to invalid state', () => {
+    tenantStore.invalidateTenant('Unknown tenant id.', 'tenant-a');
+    tenantStore.applyPresentedError({
+      kind: 'network',
+      message: 'Network request failed.',
+      details: [],
+      correlationId: 'corr-network',
+    });
+
+    expect(get(tenantStore)).toEqual({
+      tenantId: 'tenant-a',
+      status: 'invalid',
+      invalidReason: 'Unknown tenant id.',
+      loading: false,
+      error: 'Network request failed.',
+    });
+  });
 });

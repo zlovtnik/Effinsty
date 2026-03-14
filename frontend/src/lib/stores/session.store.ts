@@ -4,10 +4,9 @@ import {
   type SessionSnapshot,
   type SessionStorage,
 } from '$lib/infrastructure/storage/session-storage';
-import type { AuthTokens } from '$lib/services/auth/auth.service';
 
 export interface SessionState {
-  refreshToken: string | null;
+  expiresAt: string | null;
 }
 
 export interface SessionStoreDependencies {
@@ -16,7 +15,7 @@ export interface SessionStoreDependencies {
 
 function toState(snapshot: SessionSnapshot): SessionState {
   return {
-    refreshToken: snapshot.refreshToken,
+    expiresAt: snapshot.expiresAt,
   };
 }
 
@@ -31,15 +30,9 @@ export function createSessionStore(dependencies: SessionStoreDependencies = {}) 
 
   return {
     subscribe,
-    setTokens: (tokens: AuthTokens) => sync(storage.setTokens(tokens)),
-    setAccessToken: (accessToken: string, expiresAt: string) =>
-      sync(storage.setAccessToken(accessToken, expiresAt)),
-    setRefreshToken: (refreshToken: string) =>
-      sync(storage.setRefreshToken(refreshToken)),
+    setExpiresAt: (expiresAt: string) => sync(storage.setExpiresAt(expiresAt)),
     getSession: (): SessionSnapshot => storage.getSnapshot(),
-    hasRefreshToken: (): boolean => storage.hasRefreshToken(),
-    isAccessTokenExpired: (leewayMs = 0): boolean =>
-      storage.isAccessTokenExpired(leewayMs),
+    isSessionExpired: (leewayMs = 0): boolean => storage.isSessionExpired(leewayMs),
     clear: () => sync(storage.clear()),
     reset: () => sync(storage.clear()),
   };

@@ -1,26 +1,15 @@
 export interface SessionSnapshot {
-  accessToken: string | null;
-  refreshToken: string | null;
   expiresAt: string | null;
 }
 
 export interface SessionStorage {
   getSnapshot(): SessionSnapshot;
-  setTokens(next: {
-    accessToken: string;
-    refreshToken: string;
-    expiresAt: string;
-  }): SessionSnapshot;
-  setAccessToken(accessToken: string, expiresAt: string): SessionSnapshot;
-  setRefreshToken(refreshToken: string): SessionSnapshot;
+  setExpiresAt(expiresAt: string): SessionSnapshot;
   clear(): SessionSnapshot;
-  hasRefreshToken(): boolean;
-  isAccessTokenExpired(leewayMs?: number): boolean;
+  isSessionExpired(leewayMs?: number): boolean;
 }
 
 export const EMPTY_SESSION_SNAPSHOT: SessionSnapshot = {
-  accessToken: null,
-  refreshToken: null,
   expiresAt: null,
 };
 
@@ -46,26 +35,9 @@ export function createMemorySessionStorage(
     getSnapshot(): SessionSnapshot {
       return cloneSnapshot(snapshot);
     },
-    setTokens(next): SessionSnapshot {
+    setExpiresAt(expiresAt: string): SessionSnapshot {
       snapshot = {
-        accessToken: next.accessToken,
-        refreshToken: next.refreshToken,
-        expiresAt: next.expiresAt,
-      };
-      return cloneSnapshot(snapshot);
-    },
-    setAccessToken(accessToken: string, expiresAt: string): SessionSnapshot {
-      snapshot = {
-        ...snapshot,
-        accessToken,
         expiresAt,
-      };
-      return cloneSnapshot(snapshot);
-    },
-    setRefreshToken(refreshToken: string): SessionSnapshot {
-      snapshot = {
-        ...snapshot,
-        refreshToken,
       };
       return cloneSnapshot(snapshot);
     },
@@ -73,14 +45,7 @@ export function createMemorySessionStorage(
       snapshot = cloneSnapshot(EMPTY_SESSION_SNAPSHOT);
       return cloneSnapshot(snapshot);
     },
-    hasRefreshToken(): boolean {
-      return Boolean(snapshot.refreshToken);
-    },
-    isAccessTokenExpired(leewayMs = 0): boolean {
-      if (!snapshot.accessToken) {
-        return true;
-      }
-
+    isSessionExpired(leewayMs = 0): boolean {
       const expiryTime = toExpiryTime(snapshot.expiresAt);
       if (expiryTime === null) {
         return true;

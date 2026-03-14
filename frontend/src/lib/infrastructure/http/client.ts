@@ -27,7 +27,6 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
   method?: string;
   body?: unknown;
   tenantId?: string;
-  accessToken?: string;
   correlationId?: string;
   timeoutMs?: number;
   retry?: RetryOptions;
@@ -74,19 +73,15 @@ function buildRequestHeaders(
   const headers = new Headers(options.headers ?? {});
 
   if (!headers.has(CONTENT_TYPE_HEADER) && options.body !== undefined && !isBodyInit(options.body)) {
-    headers.set(CONTENT_TYPE_HEADER, config.headers.contentType);
+    headers.set(CONTENT_TYPE_HEADER, config.headers.contentTypeValue);
   }
 
   if (options.tenantId) {
-    headers.set(config.headers.tenantId, options.tenantId);
+    headers.set(config.headers.tenantIdHeader, options.tenantId);
   }
 
-  if (options.accessToken) {
-    headers.set(config.headers.authorization, `Bearer ${options.accessToken}`);
-  }
-
-  if (!headers.has(config.headers.correlationId)) {
-    headers.set(config.headers.correlationId, correlationId);
+  if (!headers.has(config.headers.correlationIdHeader)) {
+    headers.set(config.headers.correlationIdHeader, correlationId);
   }
 
   return headers;
@@ -131,6 +126,29 @@ function toRequestUrl(path: string, baseUrl: string): string {
   return new URL(`${baseUrl}${path}`, origin).toString();
 }
 
+function getBackoffDelayMs(backoffMs: number, attempt: number): number {
+  return backoffMs * Math.pow(2, attempt - 1);
+}
+
+function linkAbortSignal(
+  controller: AbortController,
+  signal?: AbortSignal
+): () => void {
+  if (!signal) {
+    return () => {};
+  }
+
+  if (signal.aborted) {
+    controller.abort();
+    return () => {};
+  }
+
+  const onAbort = () => controller.abort();
+  signal.addEventListener('abort', onAbort, { once: true });
+
+  return () => signal.removeEventListener('abort', onAbort);
+}
+
 export function createHttpClient(
   configOverrides: HttpConfigOverrides = {}
 ): HttpClient {
@@ -163,10 +181,22 @@ export function createHttpClient(
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+      let timeoutTriggered = false;
+      let unlinkAbortSignal = () => {};
 
       try {
         const headers = buildRequestHeaders(options, correlationId, config);
-        const requestPromise = fetch(
+        const abortController = new AbortController();
+        unlinkAbortSignal = linkAbortSignal(abortController, options.signal);
+
+        if (timeoutMs > 0) {
+          timeoutHandle = setTimeout(() => {
+            timeoutTriggered = true;
+            abortController.abort();
+          }, timeoutMs);
+        }
+
+        const response = await fetch(
           toRequestUrl(path, options.baseUrl ?? config.baseUrl),
           {
             ...options,
@@ -174,24 +204,12 @@ export function createHttpClient(
             headers,
             credentials: options.credentials ?? 'include',
             body,
-            signal: options.signal,
+            signal: abortController.signal,
           }
         );
-        const response = await Promise.race<Response>([
-          requestPromise,
-          new Promise<Response>((_, reject) => {
-            if (timeoutMs <= 0) {
-              return;
-            }
-
-            timeoutHandle = setTimeout(() => {
-              reject(new RequestError(toTimeoutError(undefined, correlationId)));
-            }, timeoutMs);
-          }),
-        ]);
 
         const responseCorrelationId =
-          response.headers.get(config.headers.correlationId) ?? correlationId;
+          response.headers.get(config.headers.correlationIdHeader) ?? correlationId;
         const parsedBody = await parseBody<T>(response, responseCorrelationId);
 
         options.onResponseMeta?.({
@@ -206,7 +224,7 @@ export function createHttpClient(
             attempt < attempts &&
             retryableStatuses.includes(response.status)
           ) {
-            await sleep(backoffMs * attempt);
+            await sleep(getBackoffDelayMs(backoffMs, attempt));
             continue;
           }
 
@@ -218,7 +236,7 @@ export function createHttpClient(
         return parsedBody;
       } catch (error) {
         if (isAbortError(error)) {
-          if (options.signal?.aborted) {
+          if (options.signal?.aborted && !timeoutTriggered) {
             throw new RequestError(
               toCancellationError(undefined, correlationId)
             );
@@ -229,7 +247,7 @@ export function createHttpClient(
           );
 
           if (method === 'GET' && attempt < attempts) {
-            await sleep(backoffMs * attempt);
+            await sleep(getBackoffDelayMs(backoffMs, attempt));
             continue;
           }
 
@@ -242,7 +260,7 @@ export function createHttpClient(
             method === 'GET' &&
             attempt < attempts
           ) {
-            await sleep(backoffMs * attempt);
+            await sleep(getBackoffDelayMs(backoffMs, attempt));
             continue;
           }
 
@@ -257,7 +275,7 @@ export function createHttpClient(
         );
 
         if (method === 'GET' && attempt < attempts) {
-          await sleep(backoffMs * attempt);
+          await sleep(getBackoffDelayMs(backoffMs, attempt));
           continue;
         }
 
@@ -266,10 +284,13 @@ export function createHttpClient(
         if (timeoutHandle !== undefined) {
           clearTimeout(timeoutHandle);
         }
+        unlinkAbortSignal();
       }
     }
 
-    throw new RequestError(toNetworkError(undefined));
+    throw new RequestError(
+      toNetworkError('Exhausted all retry attempts.', correlationId)
+    );
   }
 
   return {

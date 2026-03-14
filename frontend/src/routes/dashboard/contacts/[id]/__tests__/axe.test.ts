@@ -40,7 +40,7 @@ describe('contact detail page a11y', () => {
     authStore.reset();
     tenantStore.reset();
     sessionStore.reset();
-    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
+    authStore.setAuthenticated();
     tenantStore.resolveTenant('tenant-a');
     vi.mocked(contactsService.get).mockResolvedValue({
       id: '11111111-1111-1111-1111-111111111111',

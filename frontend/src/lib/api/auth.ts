@@ -1,10 +1,9 @@
 import { authService } from '$lib/services/auth/auth.service';
 
 export type {
+  AuthSession,
   AuthService,
-  AuthTokens,
   LoginRequest,
-  RefreshRequest,
 } from '$lib/services/auth/auth.service';
 
 export function login(tenantId: string, payload: import('$lib/services/auth/auth.service').LoginRequest, correlationId?: string) {
@@ -13,17 +12,14 @@ export function login(tenantId: string, payload: import('$lib/services/auth/auth
 
 export function refresh(
   tenantId: string,
-  payload: import('$lib/services/auth/auth.service').RefreshRequest,
   correlationId?: string
 ) {
-  return authService.refresh(tenantId, payload, correlationId);
+  return authService.refresh(tenantId, correlationId);
 }
 
 export function logout(
   tenantId: string,
-  payload: import('$lib/services/auth/auth.service').RefreshRequest,
-  accessToken: string,
   correlationId?: string
 ) {
-  return authService.logout(tenantId, payload, accessToken, correlationId);
+  return authService.logout(tenantId, correlationId);
 }

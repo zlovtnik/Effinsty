@@ -34,8 +34,11 @@ describe('validation helpers', () => {
 
   it('exposes reusable primitive validators', () => {
     expect(isNonEmpty(' value ')).toBe(true);
+    expect(isValidEmail(' ADA@EXAMPLE.COM ')).toBe(true);
     expect(isValidEmail('ada@example.com')).toBe(true);
+    expect(isValidPhone('(555) 123-4567')).toBe(true);
     expect(isValidPhone('5551234567')).toBe(true);
     expect(clampPositiveInt(999, 1, 100)).toBe(100);
+    expect(clampPositiveInt(5, 1, 0)).toBe(1);
   });
 });

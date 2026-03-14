@@ -3,9 +3,8 @@ import { isRequestError } from '$lib/api/errors';
 import { clearSessionAndRedirectToLogin } from '$lib/auth/session';
 import { authStore } from '$lib/stores/auth.store';
 
-type AuthenticatedRequestOptions = Omit<RequestOptions, 'tenantId' | 'accessToken'> & {
+type AuthenticatedRequestOptions = Omit<RequestOptions, 'tenantId'> & {
   tenantId: string;
-  accessToken: string;
 };
 
 function isUnauthorized(error: unknown): boolean {
@@ -23,17 +22,15 @@ export async function requestWithAuth<T>(
       throw error;
     }
 
-    let refreshedAccessToken: string;
-
     try {
-      refreshedAccessToken = await authStore.refresh();
+      await authStore.refresh();
     } catch (refreshError) {
       await clearSessionAndRedirectToLogin('session-expired');
       throw refreshError;
     }
 
     try {
-      return await request<T>(path, { ...options, accessToken: refreshedAccessToken });
+      return await request<T>(path, options);
     } catch (retryError) {
       if (isUnauthorized(retryError)) {
         await clearSessionAndRedirectToLogin('session-expired');

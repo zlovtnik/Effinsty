@@ -11,8 +11,6 @@ describe('frontend contract locks', () => {
     server.use(
       http.post('http://localhost/api/auth/login', () =>
         HttpResponse.json({
-          accessToken: 'access-token',
-          refreshToken: 'refresh-token',
           expiresAt: '2026-03-12T12:00:00Z',
         })
       )
@@ -20,7 +18,7 @@ describe('frontend contract locks', () => {
 
     const response = await login('tenant-a', { username: 'alice', password: 'password' }, 'corr-login');
 
-    expect(Object.keys(response).sort()).toEqual(['accessToken', 'expiresAt', 'refreshToken']);
+    expect(Object.keys(response).sort()).toEqual(['expiresAt']);
     expect('AccessToken' in response).toBe(false);
     expect('RefreshToken' in response).toBe(false);
     expect('ExpiresAt' in response).toBe(false);
@@ -53,7 +51,6 @@ describe('frontend contract locks', () => {
     const response = await listContacts({
       context: {
         tenantId: 'tenant-a',
-        accessToken: 'token-123',
       },
       page: 1,
       pageSize: 20,

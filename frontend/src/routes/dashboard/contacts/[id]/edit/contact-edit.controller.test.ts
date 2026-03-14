@@ -19,7 +19,7 @@ describe('ContactEditController', () => {
     vi.clearAllMocks();
     authStore.reset();
     tenantStore.reset();
-    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
+    authStore.setAuthenticated();
     tenantStore.resolveTenant('tenant-a');
 
     getContactMock.mockResolvedValue({
@@ -54,7 +54,7 @@ describe('ContactEditController', () => {
     });
 
     expect(updateContactMock).toHaveBeenCalledWith({
-      context: { tenantId: 'tenant-a', accessToken: 'access-token' },
+      context: { tenantId: 'tenant-a' },
       id: 'contact-1',
       payload: {
         firstName: 'Ada',

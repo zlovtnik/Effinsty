@@ -25,7 +25,7 @@ describe('ContactDetailController', () => {
     vi.clearAllMocks();
     authStore.reset();
     tenantStore.reset();
-    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
+    authStore.setAuthenticated();
     tenantStore.resolveTenant('tenant-a');
   });
 

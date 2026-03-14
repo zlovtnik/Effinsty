@@ -19,7 +19,7 @@ describe('contacts query handler', () => {
     });
 
     await handler.list({
-      context: { tenantId: 'tenant-a', accessToken: 'token-123' },
+      context: { tenantId: 'tenant-a' },
       page: 0,
       pageSize: 999,
     });
@@ -27,7 +27,6 @@ describe('contacts query handler', () => {
     expect(requestWithAuthMock).toHaveBeenCalledWith('/contacts?page=1&pageSize=100', {
       method: 'GET',
       tenantId: 'tenant-a',
-      accessToken: 'token-123',
       correlationId: undefined,
     });
   });
@@ -41,7 +40,7 @@ describe('contacts query handler', () => {
 
     try {
       await handler.get({
-        context: { tenantId: 'tenant-a', accessToken: 'token-123' },
+        context: { tenantId: 'tenant-a' },
         id: '   ',
       });
       throw new Error('Expected get to fail');
@@ -51,7 +50,7 @@ describe('contacts query handler', () => {
         return;
       }
 
-      expect(error.appError.message).toContain('Contact id is required');
+      expect(error.appError.message).toContain('Valid contact id is required');
     }
   });
 });

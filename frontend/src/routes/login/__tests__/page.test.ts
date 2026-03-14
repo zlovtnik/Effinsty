@@ -50,13 +50,11 @@ describe('login page', () => {
 
   it('submits login and redirects to sanitized returnTo on success', async () => {
     const loginMock = vi.spyOn(authStore, 'login').mockImplementation(async () => {
-      const tokens = {
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
+      const session = {
         expiresAt: TEST_SESSION_EXPIRY,
       };
-      authStore.completeLogin(tokens);
-      return tokens;
+      authStore.completeLogin(session);
+      return session;
     });
 
     window.history.replaceState({}, '', '/login?returnTo=%2Fdashboard%2Fcontacts%3Fpage%3D2');
@@ -86,7 +84,7 @@ describe('login page', () => {
     });
 
     expect(get(authStore).isAuthenticated).toBe(true);
-    expect(get(sessionStore).refreshToken).toBe('refresh-token');
+    expect(get(sessionStore).expiresAt).toBe(TEST_SESSION_EXPIRY);
   });
 
   it('maps backend auth failures into visible error text', async () => {
@@ -123,8 +121,6 @@ describe('login page', () => {
     window.history.replaceState({}, '', '/login?returnTo=%2Fdashboard%2Fsettings');
 
     authStore.completeLogin({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       expiresAt: TEST_SESSION_EXPIRY,
     });
 

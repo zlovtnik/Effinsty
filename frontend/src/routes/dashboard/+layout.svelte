@@ -31,7 +31,7 @@
     const authState = get(authStore);
     const currentPath = currentPathWithQuery();
 
-    if (!authState.isAuthenticated || !authState.accessToken) {
+    if (!authState.isAuthenticated) {
       void goto(buildLoginRedirectPath(currentPath));
       return;
     }
@@ -45,7 +45,7 @@
   function syncHealthPolling(): void {
     const authState = get(authStore);
 
-    if (authState.isAuthenticated && authState.accessToken) {
+    if (authState.isAuthenticated) {
       healthStore.startPolling();
       return;
     }

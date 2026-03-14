@@ -99,6 +99,6 @@ export function mapApiError(
     code: parsed.code ?? 'unexpected_error',
     message: parsed.message ?? 'An unexpected error occurred.',
     details: Array.isArray(parsed.details) ? parsed.details : [],
-    correlationId: parsed.correlationId ?? fallbackCorrelationId ?? '',
+    correlationId: parsed.correlationId ?? fallbackCorrelationId,
   };
 }

@@ -34,7 +34,6 @@ describe('api/client request', () => {
     const response = await request<{ ok: boolean }>('/contacts', {
       method: 'GET',
       tenantId: 'tenant-a',
-      accessToken: 'token-123',
       correlationId: 'corr-request',
       retry: { attempts: 1, backoffMs: 0 },
       onResponseMeta: (meta) => {
@@ -54,7 +53,7 @@ describe('api/client request', () => {
     const headers = new Headers(init.headers);
 
     expect(headers.get('X-Tenant-ID')).toBe('tenant-a');
-    expect(headers.get('Authorization')).toBe('Bearer token-123');
+    expect(headers.get('Authorization')).toBeNull();
     expect(headers.get('X-Correlation-ID')).toBe('corr-request');
     expect(capturedCorrelationId).toBe('corr-response');
   });
@@ -91,22 +90,6 @@ describe('api/client request', () => {
     await expect(
       request('/contacts', {
         method: 'GET',
-        accessToken: 'token-123',
-      })
-    ).rejects.toSatisfy((error: unknown) => {
-      if (!isRequestError(error)) {
-        return false;
-      }
-
-      return error.appError.code === 'client_configuration';
-    });
-  });
-
-  it('throws when bearer token is missing for protected paths', async () => {
-    await expect(
-      request('/contacts', {
-        method: 'GET',
-        tenantId: 'tenant-a',
       })
     ).rejects.toSatisfy((error: unknown) => {
       if (!isRequestError(error)) {
@@ -138,7 +121,6 @@ describe('api/client request', () => {
     const response = await request<{ ok: boolean }>('/contacts', {
       method: 'GET',
       tenantId: 'tenant-a',
-      accessToken: 'token-123',
       retry: { attempts: 2, backoffMs: 0 },
     });
 
@@ -149,6 +131,47 @@ describe('api/client request', () => {
 
     expect(response.ok).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses exponential backoff between GET retries', async () => {
+    vi.useFakeTimers();
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 'temporary' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 'temporary' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const pending = request('/contacts', {
+      method: 'GET',
+      tenantId: 'tenant-a',
+      retry: { attempts: 3, backoffMs: 5 },
+    });
+
+    await vi.runAllTimersAsync();
+    await pending;
+
+    const delays = setTimeoutSpy.mock.calls.map(([, delay]) => delay);
+    expect(delays).toContain(5);
+    expect(delays).toContain(10);
   });
 
   it('does not retry mutation requests', async () => {
@@ -188,7 +211,6 @@ describe('api/client request', () => {
     const promise = request('/contacts', {
       method: 'GET',
       tenantId: 'tenant-a',
-      accessToken: 'token-123',
       timeoutMs: 5,
       retry: { attempts: 1, backoffMs: 0 },
     });
@@ -221,7 +243,6 @@ describe('api/client request', () => {
     const promise = request('/contacts', {
       method: 'GET',
       tenantId: 'tenant-a',
-      accessToken: 'token-123',
       signal: callerAbort.signal,
       timeoutMs: 5_000,
       retry: { attempts: 2, backoffMs: 0 },

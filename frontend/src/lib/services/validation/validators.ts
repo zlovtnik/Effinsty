@@ -26,7 +26,8 @@ export function normalizeEmail(value: string): string | undefined {
 }
 
 export function isValidEmail(value: string): boolean {
-  return EMAIL_REGEX.test(value);
+  const normalized = normalizeEmail(value);
+  return normalized ? EMAIL_REGEX.test(normalized) : false;
 }
 
 export function normalizePhone(value: string): string | undefined {
@@ -39,7 +40,8 @@ export function normalizePhone(value: string): string | undefined {
 }
 
 export function isValidPhone(value: string): boolean {
-  return value.length >= 10 && value.length <= 15;
+  const normalized = normalizePhone(value);
+  return Boolean(normalized && normalized.length >= 10 && normalized.length <= 15);
 }
 
 export function clampPositiveInt(
@@ -47,11 +49,16 @@ export function clampPositiveInt(
   fallback: number,
   max = Number.MAX_SAFE_INTEGER
 ): number {
+  const safeFallback =
+    Number.isFinite(fallback) && fallback > 0 ? Math.trunc(fallback) : 1;
+  const safeMax =
+    Number.isFinite(max) ? Math.max(1, Math.trunc(max)) : Number.MAX_SAFE_INTEGER;
+
   if (!Number.isFinite(value)) {
-    return fallback;
+    return safeFallback;
   }
 
-  return Math.min(max, Math.max(1, Math.trunc(value)));
+  return Math.min(safeMax, Math.max(1, Math.trunc(value)));
 }
 
 export function validateLoginFields(input: {

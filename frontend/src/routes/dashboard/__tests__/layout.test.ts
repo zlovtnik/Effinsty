@@ -3,9 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { goto } from '$app/navigation';
 import { authStore } from '$lib/stores/auth.store';
-import { sessionStore } from '$lib/stores/session.store';
 import { tenantStore } from '$lib/stores/tenant.store';
-import { TEST_SESSION_EXPIRY } from '$lib/test/auth-fixtures';
 
 vi.mock('$app/navigation', () => ({
   goto: vi.fn(),
@@ -37,7 +35,6 @@ describe('dashboard layout guard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authStore.reset();
-    sessionStore.reset();
     tenantStore.reset();
   });
 
@@ -53,7 +50,7 @@ describe('dashboard layout guard', () => {
 
   it('redirects authenticated users with invalid tenant context', async () => {
     window.history.replaceState({}, '', '/dashboard/settings');
-    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
+    authStore.setAuthenticated();
     tenantStore.setTenant('tenant-a');
 
     render(DashboardLayout);
@@ -67,8 +64,7 @@ describe('dashboard layout guard', () => {
 
   it('signs out and redirects to login from dashboard shell', async () => {
     window.history.replaceState({}, '', '/dashboard');
-    authStore.setSession('access-token', TEST_SESSION_EXPIRY);
-    sessionStore.setRefreshToken('refresh-token');
+    authStore.setAuthenticated();
     tenantStore.resolveTenant('tenant-a');
 
     render(DashboardLayout);

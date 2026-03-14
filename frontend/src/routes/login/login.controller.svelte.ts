@@ -172,7 +172,6 @@ export class LoginController {
         password: this.password,
       });
       this.completeLogin();
-      await goto(this.returnToPath);
     } catch (error) {
       this.failLogin(error);
     }
