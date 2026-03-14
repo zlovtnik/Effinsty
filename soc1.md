@@ -309,8 +309,8 @@ CREATE TABLE <TENANT_SCHEMA>.USERS_AUDIT_LOG (
     TENANT_ID           VARCHAR2(64)    NOT NULL,
     OPERATION           VARCHAR2(10)    NOT NULL, -- INSERT, UPDATE, DELETE
     CHANGED_COLUMNS     CLOB,                      -- JSON: {column: {old_value, new_value}}
-    OLD_VALUES          CLOB,                      -- Full JSON of previous row
-    NEW_VALUES          CLOB,                      -- Full JSON of current row
+    OLD_VALUES          CLOB,                      -- JSON snapshot of previous row (sensitive fields hashed)
+    NEW_VALUES          CLOB,                      -- JSON snapshot of current row (sensitive fields hashed)
     CHANGED_BY          VARCHAR2(36),              -- User ID who made change
     CHANGED_AT          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     REQUEST_ID          VARCHAR2(36),              -- Correlation ID from app
@@ -360,8 +360,8 @@ CREATE TABLE <TENANT_SCHEMA>.CONTACTS_AUDIT_LOG (
     TENANT_ID           VARCHAR2(64)    NOT NULL,
     OPERATION           VARCHAR2(10)    NOT NULL, -- INSERT, UPDATE, DELETE
     CHANGED_COLUMNS     CLOB,                      -- JSON: {column: {old_value, new_value}}
-    OLD_VALUES          CLOB,                      -- Full JSON of previous row
-    NEW_VALUES          CLOB,                      -- Full JSON of current row
+    OLD_VALUES          CLOB,                      -- JSON snapshot of previous row (sensitive fields hashed)
+    NEW_VALUES          CLOB,                      -- JSON snapshot of current row (sensitive fields hashed)
     CHANGED_BY          VARCHAR2(36)    NOT NULL, -- User ID who made change
     CHANGED_AT          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     REQUEST_ID          VARCHAR2(36),              -- Correlation ID from app
@@ -484,7 +484,7 @@ BEGIN
             'ID' VALUE :NEW.ID,
             'TENANT_ID' VALUE :NEW.TENANT_ID,
             'USERNAME' VALUE :NEW.USERNAME,
-            'EMAIL' VALUE :NEW.EMAIL,
+            'EMAIL_HASH' VALUE RAWTOHEX(STANDARD_HASH(LOWER(TRIM(:NEW.EMAIL)), 'SHA256')),
             'IS_ACTIVE' VALUE :NEW.IS_ACTIVE,
             'CREATED_AT' VALUE TO_CHAR(:NEW.CREATED_AT, 'YYYY-MM-DD"T"HH24:MI:SS.FF3'),
             'CREATED_BY' VALUE :NEW.CREATED_BY
@@ -503,7 +503,10 @@ BEGIN
         
         IF NVL(:OLD.EMAIL, '__null__') <> NVL(:NEW.EMAIL, '__null__') THEN
             v_changed_columns := JSON_MERGE_PATCH(v_changed_columns, JSON_OBJECT(
-                'EMAIL' VALUE JSON_OBJECT('old' VALUE :OLD.EMAIL, 'new' VALUE :NEW.EMAIL)
+                'EMAIL' VALUE JSON_OBJECT(
+                    'old_hash' VALUE RAWTOHEX(STANDARD_HASH(LOWER(TRIM(:OLD.EMAIL)), 'SHA256')),
+                    'new_hash' VALUE RAWTOHEX(STANDARD_HASH(LOWER(TRIM(:NEW.EMAIL)), 'SHA256'))
+                )
             ));
         END IF;
         
@@ -522,7 +525,7 @@ BEGIN
         v_old_values := JSON_OBJECT(
             'ID' VALUE :OLD.ID,
             'USERNAME' VALUE :OLD.USERNAME,
-            'EMAIL' VALUE :OLD.EMAIL,
+            'EMAIL_HASH' VALUE RAWTOHEX(STANDARD_HASH(LOWER(TRIM(:OLD.EMAIL)), 'SHA256')),
             'IS_ACTIVE' VALUE :OLD.IS_ACTIVE,
             'UPDATED_AT' VALUE TO_CHAR(:OLD.UPDATED_AT, 'YYYY-MM-DD"T"HH24:MI:SS.FF3')
         );
@@ -530,7 +533,7 @@ BEGIN
         v_new_values := JSON_OBJECT(
             'ID' VALUE :NEW.ID,
             'USERNAME' VALUE :NEW.USERNAME,
-            'EMAIL' VALUE :NEW.EMAIL,
+            'EMAIL_HASH' VALUE RAWTOHEX(STANDARD_HASH(LOWER(TRIM(:NEW.EMAIL)), 'SHA256')),
             'IS_ACTIVE' VALUE :NEW.IS_ACTIVE,
             'UPDATED_AT' VALUE TO_CHAR(:NEW.UPDATED_AT, 'YYYY-MM-DD"T"HH24:MI:SS.FF3'),
             'UPDATED_BY' VALUE :NEW.UPDATED_BY
@@ -540,7 +543,7 @@ BEGIN
         v_old_values := JSON_OBJECT(
             'ID' VALUE :OLD.ID,
             'USERNAME' VALUE :OLD.USERNAME,
-            'EMAIL' VALUE :OLD.EMAIL
+            'EMAIL_HASH' VALUE RAWTOHEX(STANDARD_HASH(LOWER(TRIM(:OLD.EMAIL)), 'SHA256'))
         );
         v_new_values := NULL;
     END IF;
@@ -791,13 +794,13 @@ CREATE USER effinsty_admin IDENTIFIED BY <VERY_STRONG_PASSWORD>;
 
 GRANT CONNECT, RESOURCE TO effinsty_admin;
 GRANT CREATE TABLE, CREATE SEQUENCE, CREATE TRIGGER, CREATE VIEW TO effinsty_admin;
-GRANT ALTER TABLE, DROP TABLE TO effinsty_admin;
 
 -- Audit table management (read/delete for archival)
 GRANT SELECT, DELETE ON <TENANT_SCHEMA>.USERS_AUDIT_LOG TO effinsty_admin;
 GRANT SELECT, DELETE ON <TENANT_SCHEMA>.CONTACTS_AUDIT_LOG TO effinsty_admin;
 
 -- Usage note: DELETE from audit tables only for archival after retention period
+-- Existing tenant table ALTER/DROP remains a schema-owner or controlled DBA action
 ```
 
 ### 4.2 Row-Level Security (RLS)
@@ -833,7 +836,7 @@ CREATE OR REPLACE FUNCTION <TENANT_SCHEMA>.user_isolation_function(
 ) RETURN VARCHAR2 AS
     v_user_id VARCHAR2(36);
 BEGIN
-    -- Get current user from JWT claim stored in context
+    -- CLIENT_IDENTIFIER must be set by trusted server-side code after authentication
     v_user_id := SYS_CONTEXT('USERENV', 'CLIENT_IDENTIFIER');
     
     RETURN 'USER_ID = ''' || v_user_id || '''';
@@ -851,8 +854,39 @@ ALTER SYSTEM SET SQLNET.ENCRYPTION_SERVER = REQUIRED SCOPE=BOTH;
 ALTER SYSTEM SET SQLNET.ENCRYPTION_TYPES_SERVER = (AES256) SCOPE=BOTH;
 
 -- Enable database audit to SYS.AUD$ table
-AUDIT ALL BY effinsty_app BY ACCESS;
+AUDIT INSERT TABLE BY effinsty_app BY ACCESS;
+AUDIT UPDATE TABLE BY effinsty_app BY ACCESS;
+AUDIT DELETE TABLE BY effinsty_app BY ACCESS;
+AUDIT SESSION BY effinsty_app BY ACCESS;
 AUDIT CREATE, ALTER, DROP TABLE BY effinsty_admin BY ACCESS;
+AUDIT SESSION BY effinsty_admin BY ACCESS;
+AUDIT SESSION BY effinsty_audit BY ACCESS;
+AUDIT ROLE BY effinsty_admin BY ACCESS;
+AUDIT CREATE USER, ALTER USER, DROP USER BY effinsty_admin BY ACCESS;
+```
+
+`BY ACCESS` is the required setting for the `effinsty_app` DML/session audit policy because the Executive Summary commits to complete audit trails for data modifications. Oracle traditional auditing records one audit record per audited statement/operation with `BY ACCESS`, which preserves the per-operation evidence expected for SOC 1 review; `BY SESSION` can collapse activity into broader session-level records and is therefore not sufficient here. The committed migration also guards missing service users and managed-database `ALTER SYSTEM` restrictions so it logs warnings instead of aborting the whole run.
+
+Representative evidence capture for non-production validation:
+
+```sql
+SELECT username,
+       action_name,
+       obj_name,
+       returncode,
+       TO_CHAR("TIMESTAMP", 'YYYY-MM-DD"T"HH24:MI:SS') AS audit_ts
+FROM dba_audit_trail
+WHERE username = 'EFFINSTY_APP'
+ORDER BY "TIMESTAMP" DESC
+FETCH FIRST 5 ROWS ONLY;
+```
+
+Example evidence shape:
+
+```text
+EFFINSTY_APP  INSERT  USERS     0  2026-03-14T11:03:20
+EFFINSTY_APP  UPDATE  CONTACTS  0  2026-03-14T11:03:41
+EFFINSTY_APP  DELETE  USERS     0  2026-03-14T11:04:02
 ```
 
 ---
@@ -1220,111 +1254,370 @@ INSERT INTO <TENANT_SCHEMA>.CONTACTS_AUDIT_LOG (
 **Monthly Recovery Test (SOC 1 Requirement):**
 
 ```bash
-#!/bin/bash
-# test_backup_recovery.sh
-# Run 1st Sunday of each month
+#!/usr/bin/env bash
+# scripts/soc1_test_backup_recovery.sh
+set -euo pipefail
 
-TEST_ENV="DEV_RECOVERY"
-PROD_BACKUP=$(find /oracle/backups -name "*.bkp" -mtime -1 | head -1)
+export BACKUP_DIR=/oracle/backups
+export TARGET_CONNECT=/
+export AUXILIARY_CONNECT=sys/<password>@dev_recovery
+export TEST_ENV=DEV_RECOVERY
 
-echo "Testing recovery from backup: ${PROD_BACKUP}"
+# Prerequisites:
+# - auxiliary instance is already created and started NOMOUNT
+# - file destinations or DB_FILE_NAME_CONVERT/LOG_FILE_NAME_CONVERT are configured externally
+# - the TDE wallet/keystore is open before duplicate/restore work begins
 
-# 1. Create isolated recovery environment
-rman <<RMAN_EOF
-    DUPLICATE DATABASE ${ORACLE_SID} TO ${TEST_ENV} BACKUP LOCATION '${PROD_BACKUP}';
-RMAN_EOF
-
-# 2. Verify data integrity
-sqlplus / as sysdba << SQL_EOF
-    SET HEAD OFF FEEDBACK OFF PAGESIZE 0;
-    SELECT 'Users: ' || COUNT(*) FROM ${TEST_ENV}.USERS;
-    SELECT 'Contacts: ' || COUNT(*) FROM ${TEST_ENV}.CONTACTS;
-    SELECT 'Audit Records: ' || COUNT(*) FROM ${TEST_ENV}.USERS_AUDIT_LOG;
-    
-    -- Verify audit integrity
-    SELECT 'Missing User IDs in CONTACTS: ' || COUNT(DISTINCT c.USER_ID)
-    FROM ${TEST_ENV}.CONTACTS c
-    WHERE NOT EXISTS (SELECT 1 FROM ${TEST_ENV}.USERS u WHERE u.ID = c.USER_ID);
-SQL_EOF
-
-# 3. Generate recovery test report
-echo "Recovery Test: PASSED" >> /oracle/recovery_tests.log
+scripts/soc1_test_backup_recovery.sh
 ```
+
+Operational behavior:
+
+- Select the most recent `.bkp` file in `BACKUP_DIR` modified within the last 24 hours and fail if none exists.
+- Run `DUPLICATE TARGET DATABASE TO ${TEST_ENV} BACKUP LOCATION '${BACKUP_DIR}'`.
+- Execute SQL*Plus integrity checks with `WHENEVER SQLERROR EXIT SQL.SQLCODE` and `WHENEVER OSERROR EXIT FAILURE`.
+- Write row-count metrics plus `ORPHAN_CONTACTS|<count>` to `/oracle/recovery_tests.log`.
+- Exit nonzero when orphan contacts are detected or when the orphan metric cannot be parsed.
+
+### 7.4 RMAN Backup Policy (single source of truth)
+
+Create one RMAN policy file before scheduling jobs, then apply it through the wrapper so `BACKUP_DIR` is rendered from the approved deployment environment.
+
+```bash
+export BACKUP_DIR=/oracle/backups
+export TARGET_CONNECT=/
+scripts/soc1_apply_rman_policy.sh
+```
+
+The wrapper renders `__BACKUP_DIR__` before applying the RMAN policy and aborts if any unresolved placeholder remains.
+
+Rendered RMAN source:
+
+```sql
+-- File: scripts/soc1_rman_policy.rman
+CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 30 DAYS;
+CONFIGURE CONTROLFILE AUTOBACKUP ON;
+CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '__BACKUP_DIR__/%F_autobkup_%d_%T.ctl';
+CONFIGURE BACKUP OPTIMIZATION ON;
+CONFIGURE DEVICE TYPE DISK PARALLELISM 2 BACKUP TYPE TO BACKUPSET;
+CONFIGURE ENCRYPTION FOR DATABASE ON;
+CONFIGURE ENCRYPTION ALGORITHM 'AES256';
+CONFIGURE COMPRESSION ALGORITHM 'BASIC';
+```
+
+Encryption prerequisite:
+
+- Keep the TDE wallet/keystore configured and open, or use an autologin wallet, before any encrypted RMAN backup or restore job runs.
+- Backup entrypoints fail closed when the keystore is not open.
+
+For one-time database setup, run separately as SYSDBA:
+
+```sql
+-- File: scripts/soc1_enable_archivelog.sql
+WHENEVER SQLERROR EXIT SQL.SQLCODE;
+WHENEVER OSERROR EXIT FAILURE;
+SHUTDOWN IMMEDIATE;
+STARTUP MOUNT;
+DECLARE
+    l_status VARCHAR2(20);
+BEGIN
+    SELECT status INTO l_status FROM v$instance;
+    IF l_status != 'MOUNTED' THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Expected MOUNTED status before enabling ARCHIVELOG.');
+    END IF;
+END;
+/
+ALTER DATABASE ARCHIVELOG;
+SHUTDOWN IMMEDIATE;
+STARTUP;
+SELECT LOG_MODE FROM v$database;
+```
+
+### 7.5 Automated Backup Jobs (required artifacts)
+
+Use the committed scripts in `scripts/` as the executable source of truth and keep these environment inputs consistent across cron/systemd entries:
+
+```bash
+export ORACLE_SID=EFFINSTY
+export BACKUP_DIR=/oracle/backups
+export TARGET_CONNECT=/
+```
+
+Shared script behavior:
+
+- `scripts/oracle_backup_common.sh` validates `ORACLE_SID`, initializes `ORACLE_HOME` via `oraenv` with `ORACLE_HOME` fallback, prepends `${ORACLE_HOME}/bin` to `PATH`, and rejects `BACKUP_DIR` values that are not safe to render into RMAN command files.
+- `scripts/backup_full.sh` and `scripts/backup_incremental_hourly.sh` require `BACKUP_DIR` to exist and be writable, then abort unless the Oracle wallet/keystore is open.
+- `scripts/backup_full.sh` renders RMAN command files from validated shell inputs, emits session-specific controlfile manifests under `/oracle/ops/manifests/<sid>/`, and computes SHA-256 digests while the backup lock is still held.
+- `scripts/soc1_backup_monitor.sh` captures RMAN and SQL*Plus exit codes before the final grep-based health decision so report generation completes even when one subsystem fails.
+- `scripts/backup_validate.sh` writes validation output to `/oracle/ops/logs/<sid>/rman/validate-<timestamp>.txt`, counts archived-log backup pieces via `V$BACKUP_PIECE` + `V$BACKUP_SET`, and raises critical status when the newest full backup is missing or at least 30 hours old.
+- `scripts/soc1_test_backup_recovery.sh` rejects non-render-safe `BACKUP_DIR` values, skips unreadable backup-piece mtimes with warnings, and fails closed when `ORPHAN_CONTACTS` cannot be parsed as an integer.
+
+```bash
+#!/usr/bin/env bash
+scripts/backup_full.sh
+scripts/backup_incremental_hourly.sh
+scripts/backup_validate.sh
+```
+
+### 7.6 Backup Monitoring & cold archive
+
+- `backup_full.sh` scheduled:
+  - `cron: 0 1 * * *` (UTC) for daily full at 1:00 UTC in each non-standby environment.
+- `backup_incremental_hourly.sh` scheduled:
+  - `cron: 0 1-23 * * *` (UTC) for hourly incremental + archive logs.
+- `backup_validate.sh` scheduled:
+  - `cron: 10 7 * * *` (UTC) daily post-backup validation.
+
+- Cold-storage lifecycle:
+  - Weekly move files older than 30 days from `${BACKUP_DIR}` to `s3://effinsty-backups-cold`.
+  - Retain manifest and checksum manifest in `/oracle/ops/manifests/<sid>/`.
+  - Verify manifest checksum after migration and persist result in immutable audit log.
 
 ---
 
 ## Monitoring & Alerting
 
-### 8.1 Database Health Metrics
+### 8.0 Monitoring Architecture
 
-**Real-time Monitoring Dashboard:**
+Use one of the following paths for all Week 3 monitoring tasks:
 
-| Metric | Threshold | Alert | Action |
-|---|---|---|---|
-| Database CPU | > 80% | YELLOW | Check slow queries |
-| Database Memory | > 85% | YELLOW | Monitor PGA usage |
-| Redo Log Sync Latency | > 5 sec | RED | Page DBA, review archive settings |
-| Uncommitted Transactions | > 100 | YELLOW | Check for hung sessions |
-| Disk Space Used | > 80% | YELLOW | Add space, compress archives |
-| Failed Authentication | > 10/hour | RED | Investigation required |
-| Backup Duration | > 2 hours | YELLOW | Review performance |
+- Path A (preferred if available): Enterprise Manager with `DBMS_SERVER_ALERTS` integration.
+- Path B (cloud-neutral fallback): OS/DB script polling + alerting pipeline (Prometheus/Alertmanager + PagerDuty).
 
-**Implementation with Enterprise Manager:**
+Shared requirements for both paths:
+
+- Alert channels:
+  - Primary: PagerDuty `integration key` route for P1/P2 incidents.
+  - Secondary: email distribution list for ops + support.
+- Evidence must be logged for every alert test and production alert using UTC timestamps.
+- All monitoring outputs written to an immutable runbook log:
+  - `/oracle/ops/evidence/<environment>/<run-date>/monitoring/`
+- Change window:
+  - New thresholds start in warning-only for 14 days, then full escalation can be enabled after drift review.
+
+### 8.1 Monitoring & Alerting Baseline
+
+| Family | Metric | Source | Warning | Critical | Initial Action |
+|---|---|---|---|---|---|
+| CPU | DB CPU time ratio | AWR / `DBMS_SERVER_ALERTS.DB_CPU_TIME_RATIO` | `>= 80` for 5m | `>= 90` for 5m | Check top sessions, enable slow query runbook |
+| Memory | PGA used (percent of limit) | AWR / `v$pgastat` | `>= 85` for 10m | `>= 92` for 10m | Kill runaway consumers, review plans |
+| Memory | SGA target utilization | `v$sgastat` | `>= 82` for 10m | `>= 92` for 10m | Resize if sustained 24h |
+| Temp | Temp tablespace free | `DBA_FREE_SPACE` | `<= 20%` | `<= 10%` | Kill heavy sort/temp sessions |
+| Disk | Oracle tablespace usage | `DBA_DATA_FILES` / `DBA_TEMP_FILES` | `>= 80%` | `>= 90%` | Add tablespace/datafile or cleanup |
+| Process | DB process usage | `V$RESOURCE_LIMIT` | `>= 70%` | `>= 85%` | Increase `PROCESSES`/pool if supported |
+| Redo latency | Redo log sync wait | `V$EVENT_NAME` | `> 5 sec` 5m avg | `> 15 sec` 5m avg | Review I/O + archive log path |
+| Transactions | Uncommitted transactions | `V$TRANSACTION` | `> 100` | `> 250` | Check app locks and sessions |
+| Reliability | Failed logins | `DBA_AUDIT_TRAIL` | `> 10/hour` | `> 25/hour` | Trigger investigation |
+| Backups | Full backup age | RMAN (`V$RMAN_STATUS`) | `> 26h` | `> 30h` | Escalate operations immediately |
+
+### 8.2 Monitoring Implementation (SQL + Alerting)
+
+#### 8.2.1 Enterprise Manager path
 
 ```sql
--- Add custom metric for audit log growth
+-- Add CPU threshold in EM-compatible style
+BEGIN
+    DBMS_SERVER_ALERTS.SET_THRESHOLD(
+        metrics_id => DBMS_SERVER_ALERTS.DB_CPU_TIME_RATIO,
+        warning_value => 80,
+        critical_value => 90,
+        observation_period => 5, -- minutes
+        alert_action => 'EMAIL'
+    );
+END;
+/
+
+-- Add user call threshold
 BEGIN
     DBMS_SERVER_ALERTS.CREATE_THRESHOLD(
         metrics_id => DBMS_SERVER_ALERTS.USER_CALLS,
         warning_value => 10000,
-        critical_value => 50000,
-        observation_period => 15,  -- minutes
+        critical_value => 20000,
+        observation_period => 15, -- minutes
         alert_action => 'EMAIL'
     );
 END;
 /
 ```
 
-### 8.2 Slow Query Detection
+#### 8.2.2 Custom path (preferred in cloud)
 
-**Enable Query Monitoring:**
+Create recurring SQL checks with a scheduler (cron/systemd timer) and post to PagerDuty.
 
 ```sql
--- Enable execution plan logging
-ALTER SESSION SET STATISTICS_LEVEL = ALL;
+-- File: scripts/soc1_monitoring_check.sql
+SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TRIMSPOOL ON LINESIZE 200;
+WHENEVER SQLERROR EXIT SQL.SQLCODE;
 
--- Set slow query threshold (queries taking > 1 second)
-ALTER SYSTEM SET LONG_PARSE_TIME = 1 SCOPE=BOTH;
+WITH failed_login_1h AS (
+    SELECT
+        NVL(USERHOST, 'UNKNOWN') AS userhost,
+        NVL(USERNAME, 'UNKNOWN') AS username,
+        COUNT(*) AS failures
+    FROM dba_audit_trail
+    WHERE action_name = 'LOGON'
+      AND returncode != 0
+      AND timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
+    GROUP BY NVL(USERHOST, 'UNKNOWN'), NVL(USERNAME, 'UNKNOWN')
+)
+SELECT 'FAILED_LOGIN_BY_HOST|' || userhost || '|' || failures AS metric
+FROM failed_login_1h
+WHERE failures > 10
+UNION ALL
+SELECT 'FAILED_LOGIN_TOTAL|' || SUM(failures) AS metric
+FROM failed_login_1h
+HAVING SUM(failures) > 10;
 
--- Query to find slow queries
-SELECT *
-FROM V$SESSION
-WHERE LAST_CALL_ET > 1000  -- 1000 centiseconds = 10 seconds
-  AND USERNAME = 'EFFINSTY_APP';
+SELECT 'BACKUP_LAST_SUCCESS_TS|' || MAX(completion_time) AS metric
+FROM v$rman_status
+WHERE operation = 'BACKUP'
+  AND status = 'COMPLETED'
+  AND start_time > SYSDATE - 2;
 
--- Query plan analysis
-EXPLAIN PLAN FOR
-SELECT * FROM <TENANT_SCHEMA>.CONTACTS
-WHERE SOFT_DELETED = 0
-ORDER BY UPDATED_AT DESC;
-
-SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+SELECT 'BACKUP_RETRY_NEEDED|' || DECODE(COUNT(*),0,0,1) AS metric
+FROM v$rman_status
+WHERE operation = 'BACKUP'
+  AND status = 'FAILED'
+  AND start_time >= TRUNC(SYSDATE) - 1;
 ```
 
-### 8.3 Lock Detection
+Custom orchestrator script should parse `metric` lines and map:
 
-**Monitor for Table Locks:**
+- `FAILED_LOGIN_BY_HOST`/`FAILED_LOGIN_TOTAL` → incident at `critical` if sustained over 10/hour.
+- `BACKUP_LAST_SUCCESS_TS` older than 26 hours → `critical`.
+- `BACKUP_RETRY_NEEDED = 1` → `critical`.
+
+### 8.3 Failed Login, Slow Query, and Lock Detection
+
+#### 8.3.1 Failed login and login source checks
 
 ```sql
--- View blocking locks
-SELECT sid, serial#, username, command, status
-FROM v$session
-WHERE SID IN (
-    SELECT BLOCKING_SESSION FROM v$session WHERE BLOCKING_SESSION IS NOT NULL
-);
+-- Hourly failed login summary
+SELECT
+    USERHOST,
+    USERNAME,
+    COUNT(*) AS failed_logins_1h
+FROM dba_audit_trail
+WHERE action_name = 'LOGON'
+  AND returncode != 0
+  AND timestamp >= SYSTIMESTAMP - INTERVAL '1' HOUR
+GROUP BY USERHOST, USERNAME
+ORDER BY failed_logins_1h DESC;
+```
 
--- Kill blocking session (with caution)
+#### 8.3.2 Slow query detection
+
+```sql
+-- Enable query monitoring baseline
+ALTER SESSION SET STATISTICS_LEVEL = ALL;
+-- For deeper parse/elapsed diagnostics, use DBMS_MONITOR, SQL trace, AWR, or ASH.
+
+-- Top SQL by elapsed time (10-second threshold)
+SELECT
+    s.sql_id,
+    s.parsing_schema_name,
+    s.executions,
+    ROUND(s.elapsed_time / NULLIF(s.executions,0) / 1000000, 2) AS avg_elapsed_s,
+    SUBSTR(s.sql_text, 1, 300) AS sql_text
+FROM v$sql s
+WHERE s.parsing_schema_name = 'EFFINSTY_APP'
+  AND s.executions > 0
+  AND s.last_active_time >= SYSTIMESTAMP - INTERVAL '15' MINUTE
+  AND (s.elapsed_time / NULLIF(s.executions,0) / 1000000) > 10
+ORDER BY avg_elapsed_s DESC
+FETCH FIRST 25 ROWS ONLY;
+
+-- Top wait events (high contention)
+SELECT event, total_waits, time_waited FROM v$system_event
+WHERE time_waited > 600
+ORDER BY time_waited DESC
+FETCH FIRST 25 ROWS ONLY;
+
+-- Blocking lock visibility
+SELECT sid, serial#, username, command, status, blocking_session
+FROM v$session
+WHERE blocking_session IS NOT NULL;
+```
+
+#### 8.3.3 Lock response
+
+```sql
+-- Caution: only run after business-owner approval.
 ALTER SYSTEM KILL SESSION '123,45678' IMMEDIATE;
+```
+
+### 8.4 Evidence, escalation, and notification validation
+
+- Notification validation plan:
+  - SMTP test: send one warning and one critical test from monitoring engine.
+  - PagerDuty test: trigger one synthetic critical event and one warning event.
+  - Capture for each:
+    - UTC timestamp
+    - incident/request id
+    - recipient channel(s)
+    - alert payload and incident link
+- Triage and suppression:
+  - If alert is known maintenance event, set maintenance window on matching monitor IDs.
+  - Remove suppression immediately after maintenance end.
+- Escalation:
+  - Level 1: Email + on-call queue acknowledgment SLA 15 minutes.
+  - Level 2: PagerDuty escalation after 15 minutes unresolved.
+  - Level 3: DBA + engineering manager if unresolved after 45 minutes.
+- Closeout evidence:
+  - root-cause notes
+  - action taken
+  - time to mitigate, time to resolve
+  - follow-up tasks
+
+### 8.5 Backup monitoring scripts
+
+```bash
+#!/usr/bin/env bash
+# scripts/soc1_backup_monitor.sh
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_DIR="/oracle/ops/evidence/${ORACLE_SID}/monitoring"
+REPORT_FILE="${LOG_DIR}/backup-monitor-$(date -u +%Y%m%dT%H%M%SZ).log"
+
+umask 077
+mkdir -p "${LOG_DIR}"
+chmod 700 "${LOG_DIR}"
+: > "${REPORT_FILE}"
+chmod 600 "${REPORT_FILE}"
+
+rman_rc=0
+if rman target "${TARGET_CONNECT:-/}" <<'RMAN_EOF' >"${REPORT_FILE}" 2>&1
+list backup summary;
+list failure;
+exit;
+RMAN_EOF
+then
+  :
+else
+  rman_rc=$?
+  printf 'RMAN_MONITOR_ERROR|%s\n' "${rman_rc}" >> "${REPORT_FILE}"
+fi
+
+sql_rc=0
+if sqlplus -s / as sysdba "@${SCRIPT_DIR}/soc1_monitoring_check.sql" >> "${REPORT_FILE}" 2>&1; then
+  :
+else
+  sql_rc=$?
+  printf 'SQLPLUS_MONITOR_ERROR|%s\n' "${sql_rc}" >> "${REPORT_FILE}"
+fi
+
+monitor_failed=0
+if grep -q "BACKUP_RETRY_NEEDED|1" "${REPORT_FILE}" || \
+   grep -q "FAILED_LOGIN_BY_HOST" "${REPORT_FILE}" || \
+   grep -q "FAILED_LOGIN_TOTAL" "${REPORT_FILE}"; then
+  monitor_failed=1
+fi
+
+if (( rman_rc != 0 || sql_rc != 0 || monitor_failed != 0 )); then
+  echo "CRITICAL: monitoring check failed" >&2
+  exit 1
+fi
 ```
 
 ---
@@ -1433,85 +1726,338 @@ echo "Initiate reverse replication to restore original primary when possible."
 
 ### Phase 1: Schema Creation (Week 1)
 
-- [ ] Create tenant schemas in Oracle
-- [ ] Run migration SQL: `001_init.sql` for each tenant
-- [ ] Create audit tables and triggers
-- [ ] Create sequences for audit log IDs
-- [ ] Create database users (effinsty_app, effinsty_audit, effinsty_admin)
-- [ ] Configure privileges per user role
-- [ ] Create audit views
-- [ ] Test audit triggers with sample data
+- [ ] Provision tenant schemas (SYSDBA): run `002_bootstrap_tenant_schemas.sql`
+  - Expected:
+    - schema user exists (e.g. `TENANT_A`)
+    - quota on `USERS` tablespace is granted when that tablespace exists, otherwise the script logs a skip and continues
+    - re-run-safe behavior honored (001_init only runs when `<TENANT_SCHEMA>.USERS` absent)
+- [ ] Run one tenant-scoped schema migration: execute rendered `001_init.sql` (scripted via `002_bootstrap_tenant_schemas.sql`)
+  - Expected artifacts: `USERS`, `CONTACTS`, `SESSIONS`,
+    `USERS_AUDIT_LOG`, `CONTACTS_AUDIT_LOG`, `SESSIONS_AUDIT_LOG`,
+    `SEQ_USERS_AUDIT`, `SEQ_CONTACTS_AUDIT`, `SEQ_SESSIONS_AUDIT`,
+    audit triggers, and `V_*_AUDIT_TRAIL` views.
+- [ ] Record migration output checksums
+  - Save `DBMS_METADATA.GET_DDL` hash per tenant for:
+    - tables (`USERS`, `CONTACTS`, `SESSIONS`)
+    - audit tables and sequences
+    - triggers and audit views
+- [ ] Execute security setup script `003_security_users_and_privileges.sql` for each tenant
+  - Expected:
+    - roles `EFFINSTY_APP_ROLE`, `EFFINSTY_AUDIT_ROLE`, `EFFINSTY_ADMIN_ROLE`
+    - users `effinsty_app`, `effinsty_audit`, `effinsty_admin`
+    - no direct `UPDATE`/`DELETE` grants on audit logs to app or audit roles
+- [ ] Run `006_soc1_week1_2_validation.sql` section 1 and section 4 for each tenant
+  - Expected:
+    - object inventory checks return all required tables/sequences/triggers/views
+    - audit trigger smoke tests create >=1 row in each audit log table
 
 ### Phase 2: Security & Access Control (Week 2)
 
-- [ ] Configure network encryption (TLS 1.2+)
-- [ ] Enable database audit trail (`AUDIT ALL BY effinsty_app`)
-- [ ] Configure password policies (complexity, expiry)
-- [ ] Implement row-level security (RLS) policies
-- [ ] Set up database user session tracking
-- [ ] Document access control procedures
-- [ ] Create access control matrix (user × privilege)
+- [ ] Execute hardening script `004_network_security_and_audit.sql` under SYSDBA
+  - Expected:
+    - `SQLNET.ENCRYPTION_SERVER = REQUIRED`
+    - `SQLNET.ENCRYPTION_TYPES_SERVER` includes `AES256`
+    - targeted `EFFINSTY_APP` `INSERT/UPDATE/DELETE TABLE` + `SESSION` auditing is active with `BY ACCESS`
+    - `EFFINSTY_PASSWORD_PROFILE` applied to `effinsty_app`, `effinsty_audit`, `effinsty_admin`
+- [ ] Apply managed-service note (if applicable): enforce encryption/audit/policies at DB service layer when `ALTER SYSTEM` is restricted.
+- [ ] Execute `005_rls_and_session_context.sql` for each tenant
+  - Expected:
+    - `RLS_CONTACTS_USER_ISOLATION` exists on `CONTACTS`
+    - policy is `DISABLED` initially (safe-by-default)
+    - default predicate denies rows if `CLIENT_IDENTIFIER` missing
+    - application follow-up documented: set `DBMS_SESSION.SET_IDENTIFIER(:server_derived_user_id)` after authentication and never from raw client input
+- [ ] Verify access-control matrix in `006_soc1_week1_2_validation.sql`
+  - Expected:
+    - privilege matrix output aligns with matrix table in Appendix B
+    - forbidden direct `UPDATE`/`DELETE` on audit tables are absent for app/audit personas
+- [ ] Capture Phase 1–2 rollout sign-off
+  - Record: run owner, timestamp (UTC), environment, tenant list, target DB links/SID, and validation outputs.
+
+### Phase 1-2 Rollout Sign-off
+
+| Field | Value |
+|---|---|
+| Run date (UTC) |  |
+| Run owner |  |
+| DBA approver |  |
+| Environment / DB link / SID |  |
+| Tenants executed |  |
+| Bootstrap script checksum (`002_bootstrap_tenant_schemas.sql`) |  |
+| Migration checksum (`001_init.sql`) |  |
+| Security script checksum (`003_security_users_and_privileges.sql`) |  |
+| Hardening script checksum (`004_network_security_and_audit.sql`) |  |
+| RLS script checksum (`005_rls_and_session_context.sql`) |  |
+| Validation script checksum (`006_soc1_week1_2_validation.sql`) |  |
+| SQL validation command output refs (table/privilege/audit) |  |
+| Approval notes / exceptions |  |
 
 ### Phase 3: Monitoring & Alerting (Week 3)
 
-- [ ] Deploy monitoring agent (Enterprise Manager or custom)
-- [ ] Configure CPU/memory/disk thresholds
-- [ ] Set up failed login alerts
-- [ ] Create slow query detection
+- [ ] Deploy monitoring platform for production and DEV
+  - Decision captured in `Monitoring Path` field:
+    - `EM` (Enterprise Manager) or `CUSTOM` (custom + alert pipeline)
+  - Validate runbook docs exist:
+    - `/oracle/ops/runbooks/monitoring.md`
+    - `/oracle/ops/evidence/<env>/<run-date>/monitoring/`
+- [ ] Configure monitoring thresholds and action mapping (Week 3 baseline)
+  - CPU, memory, temp, process, disk, redo latency, uncommitted transaction, failed-login, backup-staleness.
+  - Initial warning-only mode for 14 days, then full escalation.
+- [ ] Configure failed login alert checks
+  - Implement `dba_audit_trail`/`DBA_AUDIT_SESSION` query checks.
+  - Alert if failures exceed `10/hour` by user/host for sustained 2 windows.
+- [ ] Create slow query detection process
+  - Implement session + wait event + SQL elapsed-time view checks.
+  - Enforce review/runbook if p95/avg elapsed time breaches.
 - [ ] Configure backup job monitoring
-- [ ] Test alert notifications (email, PagerDuty)
-- [ ] Document monitoring procedures
+  - Validate `scripts/soc1_monitoring_check.sql` output includes:
+    - `BACKUP_RETRY_NEEDED`
+    - `BACKUP_LAST_SUCCESS_TS`
+- [ ] Test alert notifications
+  - SMTP test: warning + critical
+  - PagerDuty test: warning + critical
+  - Evidence persisted with timestamp + incident/request id.
+- [ ] Document and sign off monitoring procedures
+  - Triage matrix
+  - false-positive suppression
+  - escalation ownership
+  - incident closure criteria
 
 ### Phase 4: Backup & Recovery (Week 4)
 
-- [ ] Configure RMAN backup policy
-- [ ] Create automated backup scripts
-- [ ] Test full database recovery (DEV environment)
-- [ ] Test point-in-time recovery
+- [ ] Configure RMAN backup policy as executable standard
+  - Create/maintain `scripts/soc1_rman_policy.rman`
+  - Apply it through `scripts/soc1_apply_rman_policy.sh`
+  - Verify policy includes:
+    - archive logging enabled
+    - retention window `30 DAYS`
+    - encryption + compression enabled
+    - `BACKUP_DIR` rendered from the approved deployment environment
+    - TDE wallet/keystore open before encrypted RMAN jobs run
+- [ ] Create and schedule automated backup scripts
+  - `scripts/backup_full.sh`
+  - `scripts/backup_incremental_hourly.sh`
+  - `scripts/backup_validate.sh`
+  - Verify `BACKUP_DIR`, `TARGET_CONNECT`, and wallet prerequisites in the scheduler environment.
+  - Verify lockfile and non-overlap behavior.
+- [ ] Validate full restore in DEV
+  - Run `scripts/soc1_test_backup_recovery.sh`
+  - Pre-create the auxiliary instance, start it `NOMOUNT`, and configure isolated file destinations or name conversion first.
+  - Verify object-count checks pass, `ORPHAN_CONTACTS|0` is emitted, and record output in `/oracle/recovery_tests.log`.
+- [ ] Validate PITR in DEV
+  - Capture target timestamp, recover in isolated environment, verify row-count integrity.
 - [ ] Document recovery procedures
-- [ ] Conduct recovery drill (monthly schedule)
+  - Add RTO/RPO assumptions.
+  - Add rollback steps and command-level runbook.
+- [ ] Conduct monthly recovery drill
+  - Schedule with owner + calendar + evidence bundle:
+    - scenario type
+    - recovered point
+    - elapsed time
+    - blockers
+    - action items
 - [ ] Archive oldest backups to cold storage
+  - Implement age-based lifecycle from `/oracle/backups` to `s3://effinsty-backups-cold`.
+  - Preserve manifest + checksum artifacts in `/oracle/ops/manifests/<sid>/`.
+
+### Phase 3-4 Runoff Sign-off
+
+| Field | Value |
+|---|---|
+| Monitoring path (EM or CUSTOM) |  |
+| Monitoring engineer |  |
+| Week 3 start date (UTC) |  |
+| Week 3 completion date (UTC) |  |
+| Alert tests completed (email) |  |
+| Alert tests completed (PagerDuty) |  |
+| Week 4 completion date (UTC) |  |
+| Backup policy applied by DBA |  |
+| Full recovery (DEV) result |  |
+| PITR (DEV) result |  |
+| Monthly drill date |  |
+| Cold archive manifest count |  |
 
 ### Phase 5: Disaster Recovery (Week 5)
 
-- [ ] Set up Data Guard physical standby
-- [ ] Configure log shipping to standby
-- [ ] Test log apply on standby
-- [ ] Document failover procedures
-- [ ] Conduct failover drill
-- [ ] Schedule monthly failover tests
-- [ ] Create runbook for emergency failover
+- [ ] Register standby topology and baseline capacity for target RTO/RPO
+  - Expected: DR topology documented for each environment (`PRIMARY`/`STANDBY`) with hostnames, SIDs, network links, and archive destinations.
+- [ ] Create Data Guard physical standby from production baseline
+  - Deliverable: standby database created and opened in `MOUNT`, redo transport channels configured.
+  - Validation: `V$DATABASE.DATABASE_ROLE` = `PHYSICAL STANDBY`, `open_mode` = `MOUNT`.
+- [ ] Configure synchronous physical log shipping (Data Guard)
+  - Deliverable: `CONFIGURE DEFAULT LOG ARCHIVE DEST` and `LOG_ARCHIVE_DEST_n` rules for standby.
+  - Validate with `SELECT DEST_ID, DEST_NAME, STATUS, DESTINATION FROM V$ARCHIVE_DEST WHERE STATUS='VALID';`
+- [ ] Configure and validate managed standby recovery
+  - Deliverable: `ALTER DATABASE RECOVER MANAGED STANDBY DATABASE DISCONNECT USING CURRENT LOGFILE;`
+  - Validate: `V$MANAGED_STANDBY` shows active managed recovery and `Last_Apply_Time` advancing.
+- [ ] Test log apply on standby end-to-end
+  - Execute transaction on primary, wait for apply lag, and verify same change is visible via standby apply metrics/redo gap checks.
+  - Validate: `V$DATAGUARD_STATS.GAP_STATUS` is `No` during test window.
+- [ ] Build and validate standby failover script
+  - Deliverable: `scripts/failover_to_standby.sh` and `scripts/revert_to_original_primary.sh` with guardrails and dry-run mode.
+  - Validate: scripted steps run successfully in lab with rollback plan and output logs.
+- [ ] Conduct documented failover drill
+  - Include: outage notification, takeover, post-failover application reconnect, and reverse-replication initiation.
+  - Acceptance: RTO measured, evidence captured, blockers logged.
+- [ ] Schedule monthly failover tests and evidence retention
+  - Add calendar entry for monthly DR test and standard evidence folder naming (`/oracle/ops/evidence/<env>/<date>/dr/`).
+- [ ] Create emergency failover runbook
+  - Create/refresh ` /oracle/ops/runbooks/disaster_recovery_failover.md ` with command matrix, decision tree, contact list, and post-dr validation checklist.
+
+### Phase 5 Runoff Sign-off
+
+| Field | Value |
+|---|---|
+| DR lead owner |  |
+| DBA approver |  |
+| Standby build date (UTC) |  |
+| Log shipping validation date (UTC) |  |
+| Log apply drill outcome (RTO, lag, blockers) |  |
+| Failover drill date (UTC) |  |
+| Reverse-replication drill date (UTC) |  |
+| Evidence bundle location |  |
+| Monthly DR test schedule in calendar |  |
+| Emergency runbook location |  |
 
 ### Phase 6: Application Integration (Week 6)
 
-- [ ] Implement audit field population in application (CREATED_BY, UPDATED_BY, REQUEST_ID)
-- [ ] Add IP address & session ID capture
-- [ ] Implement session tracking (SESSIONS_AUDIT_LOG)
-- [ ] Test end-to-end audit trail
-- [ ] Create audit query utilities
-- [ ] Document audit trail interpretation
-- [ ] Train support team on reading audit logs
+- [ ] Implement application-level audit attributes in shared mutation path
+  - Populate `CREATED_BY`, `UPDATED_BY`, `REQUEST_ID` for all create/update/delete operations before DB write.
+  - Validate with unit/integration asserts on every API command that writes to mutable entities.
+- [ ] Add client IP capture and session binding to context
+  - Populate `IP_ADDRESS` from trusted headers and `SESSION_ID` from auth/session context on all writes.
+  - Validate with request/response integration test.
+- [ ] Implement central user/session context propagation for audit procedures
+  - Enforce DB context/claim hydration before each repository call.
+  - Validate with request trace test that `CLIENT_IDENTIFIER`, `REQUEST_ID`, `SESSION_ID`, and source IP round-trip into audit rows.
+- [ ] Implement `SESSIONS_AUDIT_LOG` end-to-end writes
+  - Capture LOGIN/REFRESH/LOGOUT/TIMEOUT/REVOKE events with user/timestamp/request/session metadata.
+  - Validate that every successful auth event produces one audit row and failed auth produces `STATUS=FAILED`.
+- [ ] Add API-level session audit retrieval
+  - Add query endpoints or admin report queries for latest session and user audit activity.
+  - Validate with at least 3 query use cases (user trail, tenant trail, security incident lookup).
+- [ ] Build reusable audit investigation utilities
+  - Add `audit_query` scripts/functions for change-window, user activity, and risky-pattern (high-volume writes, IP anomaly, missing request-id).
+  - Validate: one utility per major audit table and deterministic output format.
+- [ ] Create audit interpretation guide and support training material
+  - Add SOP for reading `CHANGED_COLUMNS`, `OLD_VALUES`, `NEW_VALUES`, and event correlation with request/session telemetry.
+  - Run support walk-through with two scenario-based exercises.
+- [ ] Run E2E audit validation script
+  - Execute scenario script: create/update/delete user and contact, rotate session, timeout/refresh.
+  - Validate required audit trail completeness for `USERS_AUDIT_LOG`, `CONTACTS_AUDIT_LOG`, and `SESSIONS_AUDIT_LOG`.
+
+### Phase 6 Runoff Sign-off
+
+- [ ] Capture weekly evidence bundle
+  - Required artifacts: test outputs, query outputs, sample audit trails, and training attendance notes.
+
+| Field | Value |
+|---|---|
+| Application owner |  |
+| App/DB validation date (UTC) |  |
+| E2E audit trail test run ID |  |
+| Missing audit-field incidents (count) |  |
+| Audit utility verification date |  |
+| Support training date |  |
+| Runbook updates / docs paths |  |
+- [ ] Confirm support team can interpret trail and escalate correctly
+  - Validate by mock incident with expected correct hypothesis and remediation path.
 
 ### Phase 7: Compliance & Testing (Week 7)
 
 - [ ] Conduct full SOC 1 compliance audit
+  - Run `src/Effinsty.Infrastructure/Migrations/006_soc1_week1_2_validation.sql` against the target tenant schema and confirm object inventory, trigger/view presence, privilege matrix, and security baseline all match expected outputs.
+  - Cross-check startup schema enforcement against `src/Effinsty.Infrastructure/DbStartupValidationService.fs` and `src/Effinsty.Infrastructure/DbSchemaValidator.fs` before approving production readiness.
+  - Reconcile service-user privilege posture and audit settings against `src/Effinsty.Infrastructure/Migrations/003_security_users_and_privileges.sql` and `src/Effinsty.Infrastructure/Migrations/004_network_security_and_audit.sql`.
+  - Store executed SQL output, reviewer notes, and approval evidence in `/oracle/ops/evidence/<env>/<date>/compliance/`.
 - [ ] Review audit logs for anomalies
+  - Run `scripts/soc1_monitoring_check.sql` and inspect `FAILED_LOGIN_BY_HOST`, `FAILED_LOGIN_TOTAL`, `BACKUP_LAST_SUCCESS_TS`, and `BACKUP_RETRY_NEEDED`.
+  - Review `USERS_AUDIT_LOG`, `CONTACTS_AUDIT_LOG`, and `SESSIONS_AUDIT_LOG` for missing `CHANGED_BY`, `REQUEST_ID`, `SESSION_ID`, IP metadata, abnormal write volume, or unexplained after-hours changes.
+  - Record anomalies, false positives, containment actions, and remediation owners in the Week 7 evidence bundle.
 - [ ] Test constraint validation
+  - Verify application-side validation coverage for schema and payload rules by running the existing unit coverage in `tests/Effinsty.UnitTests/DomainValidationTests.fs`.
+  - Re-run database-side smoke checks from `src/Effinsty.Infrastructure/Migrations/006_soc1_week1_2_validation.sql` for constraints, disallowed audit-table writes, and session-context behavior.
+  - Capture rejected insert/update/delete attempts and expected `ORA-` errors as proof that fail-secure controls are active.
 - [ ] Test backup/recovery procedures
+  - Run `scripts/backup_validate.sh`, `scripts/soc1_backup_monitor.sh`, and `scripts/soc1_test_backup_recovery.sh` in the approved non-production recovery environment.
+  - Confirm RMAN policy output, backup freshness, restore object counts, and missing-reference checks match the Week 4 recovery expectations.
+  - Append pass/fail output and elapsed recovery time to `/oracle/recovery_tests.log` and archive supporting logs in `/oracle/ops/evidence/<env>/<date>/recovery/`.
 - [ ] Prepare audit documentation for external auditors
+  - Assemble the minimum artifact set: validation-script output, privilege/grant evidence, anomaly review notes, backup/recovery evidence, monitoring-alert evidence, production change record template, and named sign-offs with UTC timestamps.
+  - Ensure each artifact is stamped with environment, execution time, operator, approver, and the source file or script used to generate it.
 - [ ] Schedule quarterly compliance reviews
+  - Establish a quarterly review cadence covering grant drift, audit-log retention, failed-login trends, backup drill outcomes, DR drill outcomes, and runbook currency.
+  - Record control owner, approver, evidence location, and calendar invite or ticket reference for each quarterly review.
 - [ ] Update disaster recovery runbooks
+  - Reconcile Phase 5 failover documentation with the current topology, command matrix, emergency contacts, RTO/RPO targets, last drill date, and rollback decision points.
+  - Confirm the emergency runbook path and link the latest drill evidence bundle before final sign-off.
+
+### Phase 7 Runoff Sign-off
+
+| Field | Value |
+|---|---|
+| Compliance lead owner |  |
+| DBA reviewer |  |
+| Week 7 audit execution date (UTC) |  |
+| Validation script evidence path |  |
+| Audit anomaly review outcome |  |
+| Constraint validation result |  |
+| Backup/recovery test result |  |
+| External auditor packet owner |  |
+| Quarterly review cadence / calendar reference |  |
+| DR runbook refresh date / path |  |
 
 ### Phase 8: Production Deployment (Week 8)
 
+- [ ] Confirm pre-window production readiness
+  - Verify the approved maintenance window, rollback owner, communication channel, deployment approver, and evidence folder for `/oracle/ops/evidence/<env>/<date>/production/`.
+  - Confirm the backend deployment topology still matches `README.md` and `docs/media/deployment.mmd`, and attach the current frontend release checklist from `frontend/docs/release-runbook.md` to the cutover plan.
+  - Confirm Week 7 compliance outputs, backup validation results, and monitoring notification tests are clean before production changes begin.
 - [ ] Deploy to production in maintenance window (off-hours)
+  - Apply approved database changes first, then deploy the coordinated API artifacts and Kubernetes manifests for the production window.
+  - Record start time, operator, artifact versions, image tag, tenant scope, and any deviations from the approved change set.
 - [ ] Verify all triggers firing correctly
+  - Re-run the object inventory and trigger functional checks from `src/Effinsty.Infrastructure/Migrations/006_soc1_week1_2_validation.sql`.
+  - Execute controlled insert/update/delete smoke operations on the tenant schema and confirm `TRG_USERS_AUDIT_LOG`, `TRG_CONTACTS_AUDIT_LOG`, and `TRG_SESSIONS_AUDIT_LOG` produce audit rows with expected request and session metadata.
+  - Stop the rollout and evaluate rollback if any trigger is disabled or any required audit row is missing.
 - [ ] Monitor audit log growth
+  - Capture baseline counts before deployment and at `+15m`, `+1h`, and `+24h` after cutover for each audit table.
+  - Review growth against expected transaction volume and investigate spikes, retention pressure, or unexplained sequence gaps.
 - [ ] Verify backup jobs completing
+  - Run `scripts/soc1_backup_monitor.sh` and inspect `scripts/soc1_monitoring_check.sql` output for backup freshness and retry-needed status after production deployment.
+  - Confirm the latest full and incremental jobs completed within policy and attach supporting logs to the production evidence bundle.
 - [ ] Verify monitoring alerts working
+  - Execute one warning-path and one critical-path alert test using the established Week 3 monitoring procedure.
+  - Confirm notification delivery, incident or case ID capture, and maintenance-window suppression behavior where applicable.
 - [ ] Conduct post-deployment tests
+  - Run backend health checks and critical-path auth/contact tests, then execute the frontend smoke checks documented in `frontend/docs/release-runbook.md`.
+  - Confirm login, token refresh, contact CRUD, logout, and health badge or status behavior succeed against production.
+  - Confirm deployed tenant mappings would still pass startup schema validation and that no schema-object drift was introduced during the rollout.
+- [ ] Apply rollback decision gate
+  - Compare results against rollback criteria: missing audit rows, failed trigger checks, backup staleness, broken auth/contact flows, or alerting failures.
+  - If any rollback gate fails, execute rollback within the same maintenance window and log the reason, time, and approving owner.
 - [ ] Document any production changes
+  - Persist executed commands, timestamps, versions, approvers, incidents, follow-up actions, and user-visible impact summary in the production change record.
+  - Link production evidence and any variances back to the Week 7 compliance packet.
 - [ ] Schedule post-deployment review
+  - Schedule a `24-hour` monitoring review and a formal post-deployment review covering audit-log growth, backup freshness, alert noise, incidents, and action items.
+  - Capture meeting owner, UTC time, attendee list, and remediation due dates.
+
+### Phase 8 Runoff Sign-off
+
+| Field | Value |
+|---|---|
+| Production change owner |  |
+| Maintenance window date/time (UTC) |  |
+| DB deployment completion time (UTC) |  |
+| API deployment completion time (UTC) |  |
+| Trigger verification result |  |
+| Audit log growth review window |  |
+| Backup freshness check result |  |
+| Monitoring alert test incident IDs |  |
+| Post-deployment smoke test result |  |
+| Rollback invoked? (Y/N + reason) |  |
+| Production evidence bundle path |  |
+| Post-deployment review meeting reference |  |
 
 ---
 
