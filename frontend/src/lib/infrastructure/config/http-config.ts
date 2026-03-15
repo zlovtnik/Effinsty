@@ -23,8 +23,13 @@ export type HttpConfigOverrides = Partial<Omit<HttpConfig, 'getRetry' | 'headers
   headers?: Partial<HttpHeaderConfig>;
 };
 
+function resolveBaseUrlFromEnv(): string {
+  const configuredBaseUrl = import.meta.env.PUBLIC_API_URL?.trim();
+  return configuredBaseUrl && configuredBaseUrl.length > 0 ? configuredBaseUrl : '/api';
+}
+
 export const HTTP_CONFIG: HttpConfig = {
-  baseUrl: '/api',
+  baseUrl: resolveBaseUrlFromEnv(),
   timeoutMs: 10_000,
   getRetry: {
     attempts: 2,

@@ -132,7 +132,7 @@ function getBackoffDelayMs(backoffMs: number, attempt: number): number {
 
 function linkAbortSignal(
   controller: AbortController,
-  signal?: AbortSignal
+  signal?: AbortSignal | null
 ): () => void {
   if (!signal) {
     return () => {};
