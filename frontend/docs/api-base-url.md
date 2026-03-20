@@ -20,6 +20,8 @@ Recommended values for `PUBLIC_API_URL`:
 - Separate local backend: `http://localhost:3000/api`
 - Production: `https://your-api-domain.com/api`
 
+If you provide only an origin (for example `https://api.example.com/`), the client now normalizes it to `https://api.example.com/api`.
+
 ## Secondary Location: Runtime Overrides
 
 The request client keeps runtime override support in [`frontend/src/lib/infrastructure/http/client.ts`](/Users/rcs/git/Effinsty/frontend/src/lib/infrastructure/http/client.ts):
@@ -36,7 +38,7 @@ Base URL precedence is:
 
 ## Environment Setup (Recommended)
 
-Create `frontend/.env.local` (or set this in your deployment environment):
+For this repo, Vite is configured to load env files from the repository root (`envDir: ..`), so set this in `/.env` or `/.env.local`:
 
 ```bash
 PUBLIC_API_URL=https://api.yourdomain.com/api

@@ -55,7 +55,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     border: 1px solid transparent;
     padding: 0.45rem 0.9rem;
     min-height: 44px;
@@ -69,9 +69,9 @@
   }
 
   .ui-button:focus-visible {
-    outline: 2px solid hsl(var(--focus));
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
-    box-shadow: 0 0 0 3px hsl(var(--focus) / 0.25);
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
   }
 
   .ui-button:disabled,
@@ -97,27 +97,27 @@
   }
 
   .ui-button--secondary {
-    color: hsl(var(--text));
-    background: hsl(var(--surface-muted));
+    color: hsl(var(--foreground));
+    background: hsl(var(--muted));
     border-color: hsl(var(--border));
   }
 
   .ui-button--ghost {
-    color: hsl(var(--text));
+    color: hsl(var(--foreground));
     background: transparent;
     border-color: transparent;
   }
 
   .ui-button--danger {
-    color: hsl(var(--primary-foreground));
-    background: hsl(var(--danger));
-    border-color: hsl(var(--danger));
+    color: hsl(var(--destructive-foreground));
+    background: hsl(var(--destructive));
+    border-color: hsl(var(--destructive));
   }
 
   .ui-button--danger-outline {
     background: transparent;
-    color: hsl(var(--danger));
-    border-color: hsl(var(--danger));
+    color: hsl(var(--destructive));
+    border-color: hsl(var(--destructive));
   }
 
   .ui-button--loading {

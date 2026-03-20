@@ -67,16 +67,16 @@
     display: grid;
     gap: 0.6rem;
     border: 1px solid hsl(var(--border));
-    border-radius: var(--radius-md);
+    border-radius: calc(var(--radius) - 2px);
     padding: 0.75rem;
-    background: hsl(var(--surface));
+    background: hsl(var(--card));
   }
 
   .summary {
     display: flex;
     gap: 0.65rem;
     flex-wrap: wrap;
-    color: hsl(var(--text) / 0.85);
+    color: hsl(var(--foreground) / 0.85);
     align-items: baseline;
   }
 
@@ -96,10 +96,10 @@
   select,
   button {
     font: inherit;
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface-muted));
-    color: hsl(var(--text));
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
     padding: 0.35rem 0.55rem;
   }
 

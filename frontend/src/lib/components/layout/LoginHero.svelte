@@ -69,7 +69,7 @@
     position: relative;
     overflow: hidden;
     border-bottom: 1px solid hsl(var(--border));
-    background: linear-gradient(145deg, hsl(var(--surface)), hsl(var(--surface) / 0.88));
+    background: linear-gradient(145deg, hsl(var(--card)), hsl(var(--card) / 0.88));
   }
 
   .hero-panel::before {
@@ -112,7 +112,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: hsl(var(--text) / 0.7);
+    color: hsl(var(--foreground) / 0.7);
   }
 
   h1 {
@@ -124,7 +124,7 @@
 
   .hero-copy {
     margin: 0;
-    color: hsl(var(--text) / 0.8);
+    color: hsl(var(--foreground) / 0.8);
     line-height: 1.5;
   }
 
@@ -139,7 +139,7 @@
     border: 1px solid hsl(var(--border));
     padding: 0.38rem 0.66rem;
     font-size: 0.78rem;
-    background: hsl(var(--surface) / 0.95);
+    background: hsl(var(--card) / 0.95);
   }
 
   .library-list {
@@ -152,9 +152,9 @@
 
   .library-card {
     border: 1px solid hsl(var(--border));
-    border-radius: var(--radius-md);
+    border-radius: calc(var(--radius) - 2px);
     padding: 0.75rem;
-    background: hsl(var(--surface) / 0.96);
+    background: hsl(var(--card) / 0.96);
     box-shadow: var(--shadow-sm);
     transition:
       transform var(--motion-fast) var(--motion-ease-standard),
@@ -182,7 +182,7 @@
     margin: 0.35rem 0 0;
     font-size: 0.9rem;
     line-height: 1.4;
-    color: hsl(var(--text) / 0.78);
+    color: hsl(var(--foreground) / 0.78);
   }
 
   @media (min-width: 1024px) {

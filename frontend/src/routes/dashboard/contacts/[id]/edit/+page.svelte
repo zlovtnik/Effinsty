@@ -103,8 +103,8 @@
   .delete-zone {
     display: grid;
     gap: 0.35rem;
-    border-color: hsl(var(--danger) / 0.35);
-    background: hsl(var(--danger) / 0.08);
+    border-color: hsl(var(--destructive) / 0.35);
+    background: hsl(var(--destructive) / 0.08);
   }
 
   .delete-zone h3,
@@ -115,6 +115,6 @@
   .delete-zone :global(button),
   .header :global(button) {
     font: inherit;
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
   }
 </style>

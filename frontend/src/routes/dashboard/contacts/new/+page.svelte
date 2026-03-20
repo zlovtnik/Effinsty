@@ -52,6 +52,6 @@
   }
 
   .header p {
-    color: hsl(var(--text) / 0.8);
+    color: hsl(var(--foreground) / 0.8);
   }
 </style>

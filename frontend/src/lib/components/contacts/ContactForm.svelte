@@ -248,8 +248,8 @@
     display: grid;
     gap: 0.9rem;
     border: 1px solid hsl(var(--border));
-    border-radius: var(--radius-md);
-    background: hsl(var(--surface));
+    border-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--card));
     padding: 1rem;
   }
 
@@ -265,22 +265,22 @@
   textarea {
     width: 100%;
     min-height: 110px;
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     border: 1px solid hsl(var(--border));
     padding: 0.45rem 0.55rem;
     font: inherit;
-    color: hsl(var(--text));
-    background: hsl(var(--surface));
+    color: hsl(var(--foreground));
+    background: hsl(var(--card));
   }
 
   .form-error {
-    color: hsl(var(--danger));
+    color: hsl(var(--destructive));
     font-size: 0.84rem;
   }
 
   .metadata-block {
     border: 1px dashed hsl(var(--border));
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     padding: 0.75rem;
     display: grid;
     gap: 0.65rem;

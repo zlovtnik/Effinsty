@@ -118,9 +118,9 @@
 
   .login-card {
     width: min(100%, 28rem);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface) / 0.98);
+    background: hsl(var(--card) / 0.98);
     box-shadow: var(--shadow-md);
     padding: clamp(1rem, 2.8vw, 1.75rem);
     display: grid;
@@ -133,7 +133,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: hsl(var(--text) / 0.7);
+    color: hsl(var(--foreground) / 0.7);
   }
 
   h2 {
@@ -145,7 +145,7 @@
 
   .card-copy {
     margin: 0;
-    color: hsl(var(--text) / 0.8);
+    color: hsl(var(--foreground) / 0.8);
     line-height: 1.5;
   }
 
@@ -164,7 +164,7 @@
     font-weight: 700;
     min-height: 44px;
     margin-top: 0.2rem;
-    background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--accent)));
+    background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--secondary)));
     box-shadow: 0 8px 20px hsl(var(--primary) / 0.24);
   }
 
@@ -178,7 +178,7 @@
   }
 
   :global(.submit-button:focus-visible) {
-    outline: 3px solid hsl(var(--focus) / 0.3);
+    outline: 3px solid hsl(var(--ring) / 0.3);
     outline-offset: 2px;
   }
 

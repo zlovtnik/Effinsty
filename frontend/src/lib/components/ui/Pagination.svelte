@@ -89,14 +89,14 @@
     display: grid;
     gap: 0.6rem;
     border: 1px solid hsl(var(--border));
-    border-radius: var(--radius-md);
+    border-radius: calc(var(--radius) - 2px);
     padding: 0.75rem;
-    background: hsl(var(--surface));
+    background: hsl(var(--card));
   }
 
   .ui-pagination__summary {
     margin: 0;
-    color: hsl(var(--text));
+    color: hsl(var(--foreground));
     opacity: 0.9;
   }
 
@@ -116,10 +116,10 @@
 
   .ui-pagination select,
   .ui-pagination__button {
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface-muted));
-    color: hsl(var(--text));
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
     padding: 0.35rem 0.55rem;
     font: inherit;
     transition:
@@ -141,7 +141,7 @@
 
   .ui-pagination select:focus-visible,
   .ui-pagination button:focus-visible {
-    outline: 2px solid hsl(var(--focus));
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
 

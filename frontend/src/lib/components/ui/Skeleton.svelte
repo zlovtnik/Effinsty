@@ -32,7 +32,7 @@
     display: block;
     height: 0.85rem;
     border-radius: 999px;
-    background: linear-gradient(90deg, color-mix(in srgb, hsl(var(--text-muted)) 16%, transparent), transparent);
+    background: linear-gradient(90deg, color-mix(in srgb, hsl(var(--muted-foreground)) 16%, transparent), transparent);
     background-size: 200% 100%;
     animation: ui-skeleton 1.2s linear infinite;
     opacity: 0.65;

@@ -56,3 +56,5 @@ frontend/coverage/
 
 # Local developer overrides
 src/Effinsty.Api/appsettings.Development.json
+
+.fake

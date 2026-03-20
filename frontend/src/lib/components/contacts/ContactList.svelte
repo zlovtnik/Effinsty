@@ -226,7 +226,7 @@
 
   .page-header p {
     margin: 0;
-    color: hsl(var(--text) / 0.8);
+    color: hsl(var(--foreground) / 0.8);
   }
 
   .toolbar {
@@ -239,8 +239,8 @@
   .state-card,
   .state-stack {
     border: 1px solid hsl(var(--border));
-    border-radius: var(--radius-md);
-    background: hsl(var(--surface));
+    border-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--card));
     padding: 0.9rem;
     display: grid;
     gap: 0.55rem;
@@ -254,8 +254,8 @@
   .table-wrap {
     overflow: auto;
     border: 1px solid hsl(var(--border));
-    border-radius: var(--radius-md);
-    background: hsl(var(--surface));
+    border-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--card));
   }
 
   table {
@@ -273,7 +273,7 @@
   }
 
   th {
-    background: hsl(var(--surface-muted));
+    background: hsl(var(--muted));
     font-size: 0.85rem;
     letter-spacing: 0.02em;
     text-transform: uppercase;
@@ -287,20 +287,20 @@
 
   .dg3-note {
     margin: 0;
-    color: hsl(var(--text) / 0.78);
+    color: hsl(var(--foreground) / 0.78);
     font-size: 0.9rem;
   }
 
   .no-match {
     text-align: center;
-    color: hsl(var(--text) / 0.75);
+    color: hsl(var(--foreground) / 0.75);
   }
 
   .sort-select {
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface));
-    color: hsl(var(--text));
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
     padding: 0.35rem 0.55rem;
     font: inherit;
     min-height: 34px;

@@ -23,9 +23,36 @@ export type HttpConfigOverrides = Partial<Omit<HttpConfig, 'getRetry' | 'headers
   headers?: Partial<HttpHeaderConfig>;
 };
 
+function normalizeConfiguredBaseUrl(value: string): string {
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.length === 0) {
+    return '/api';
+  }
+
+  if (trimmedValue.startsWith('/')) {
+    const normalizedPath = trimmedValue.replace(/\/+$/, '');
+    return normalizedPath.length > 0 ? normalizedPath : '/api';
+  }
+
+  try {
+    const url = new URL(trimmedValue);
+    const normalizedPath = url.pathname.replace(/\/+$/, '');
+    url.pathname = normalizedPath.length > 0 ? normalizedPath : '/api';
+
+    if (url.pathname === '/') {
+      url.pathname = '/api';
+    }
+
+    return url.toString();
+  } catch {
+    return trimmedValue.replace(/\/+$/, '');
+  }
+}
+
 function resolveBaseUrlFromEnv(): string {
-  const configuredBaseUrl = import.meta.env.PUBLIC_API_URL?.trim();
-  return configuredBaseUrl && configuredBaseUrl.length > 0 ? configuredBaseUrl : '/api';
+  const configuredBaseUrl = import.meta.env.PUBLIC_API_URL ?? '';
+  return normalizeConfiguredBaseUrl(configuredBaseUrl);
 }
 
 export const HTTP_CONFIG: HttpConfig = {

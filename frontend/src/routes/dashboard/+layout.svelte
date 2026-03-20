@@ -155,45 +155,45 @@
     font-size: 0.85rem;
     font-weight: 600;
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface));
+    background: hsl(var(--card));
   }
 
   .health-badge__dot {
     width: 0.55rem;
     height: 0.55rem;
     border-radius: 999px;
-    background: hsl(var(--text-muted));
+    background: hsl(var(--muted-foreground));
   }
 
   .health-badge--healthy {
-    border-color: hsl(var(--success) / 0.35);
-    background: hsl(var(--success) / 0.12);
+    border-color: hsl(var(--secondary) / 0.35);
+    background: hsl(var(--secondary) / 0.12);
   }
 
   .health-badge--healthy .health-badge__dot {
-    background: hsl(var(--success));
+    background: hsl(var(--secondary));
   }
 
   .health-badge--degraded {
-    border-color: hsl(var(--warning) / 0.4);
-    background: hsl(var(--warning) / 0.12);
+    border-color: hsl(var(--accent) / 0.4);
+    background: hsl(var(--accent) / 0.12);
   }
 
   .health-badge--degraded .health-badge__dot {
-    background: hsl(var(--warning));
+    background: hsl(var(--accent));
   }
 
   .health-meta,
   .health-message {
-    color: hsl(var(--text) / 0.75);
+    color: hsl(var(--foreground) / 0.75);
     font-size: 0.85rem;
   }
 
   .signout-button {
-    background: hsl(var(--surface));
+    background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     border-radius: 8px;
-    color: hsl(var(--text));
+    color: hsl(var(--foreground));
     cursor: pointer;
     font: inherit;
     padding: 0.45rem 0.8rem;

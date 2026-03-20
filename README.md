@@ -200,6 +200,15 @@ Oracle runtime settings should be provided via secret/config management, not com
 - data source alias: `ORACLE_DATA_SOURCE` (fallback `DATA_SOURCE`)
 - alternatively use .NET config keys (`Oracle:WalletLocation`, `Oracle:TnsAdmin`, `Oracle:DataSource`) through user-secrets or environment variables (`Oracle__...`)
 
+For cross-origin browser clients, configure allowed frontend origins:
+- config key: `Cors:AllowedOrigins` (array)
+- env override: `CORS_ALLOWED_ORIGINS` (comma/semicolon-separated)
+- in Development, defaults include:
+  - `http://localhost:5173`
+  - `http://127.0.0.1:5173`
+  - `http://localhost:4173`
+  - `http://127.0.0.1:4173`
+
 ## Media
 
 Reusable diagram sources are stored in:

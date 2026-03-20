@@ -12,7 +12,10 @@ open Xunit
 let ``tenant resolver maps known tenant to whitelist schema`` () =
     task {
         let tenantMap = Dictionary<string, TenantMapEntry>()
-        tenantMap["tenant-a"] <- { Schema = "TENANT_A"; DataSourceAlias = "mydb_high" }
+
+        tenantMap["tenant-a"] <-
+            { Schema = "TENANT_A"
+              DataSourceAlias = "mydb_high" }
 
         let options = Options.Create({ Map = tenantMap })
         let resolver = TenantResolver(options) :> ITenantResolver
@@ -33,6 +36,6 @@ let ``tenant resolver rejects unknown tenant`` () =
 
         match result with
         | Ok _ -> Assert.Fail("Expected forbidden")
-        | Error (Forbidden _) -> Assert.True(true)
+        | Error(Forbidden _) -> Assert.True(true)
         | Error _ -> Assert.Fail("Expected forbidden error")
     }

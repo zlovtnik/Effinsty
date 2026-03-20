@@ -169,7 +169,7 @@
   dt {
     font-size: 0.8rem;
     text-transform: uppercase;
-    color: hsl(var(--text) / 0.75);
+    color: hsl(var(--foreground) / 0.75);
     letter-spacing: 0.04em;
   }
 

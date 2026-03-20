@@ -15,6 +15,7 @@ type OracleConnectivityHealthCheck(options: IOptions<OracleOptions>, logger: ILo
         member _.CheckHealthAsync(_context, ct: CancellationToken) =
             task {
                 let config = options.Value
+
                 let dataSource =
                     if String.IsNullOrWhiteSpace(config.DataSource) then
                         let fromOracleEnv = Environment.GetEnvironmentVariable("ORACLE_DATA_SOURCE")
@@ -32,8 +33,17 @@ type OracleConnectivityHealthCheck(options: IOptions<OracleOptions>, logger: ILo
                     let sw = Stopwatch.StartNew()
 
                     try
-                        let timeout = if config.ConnectionTimeoutSeconds <= 0 then 30 else config.ConnectionTimeoutSeconds
-                        let userId = if String.IsNullOrWhiteSpace(config.UserId) then Environment.GetEnvironmentVariable("ORACLE_USER_ID") else config.UserId
+                        let timeout =
+                            if config.ConnectionTimeoutSeconds <= 0 then
+                                30
+                            else
+                                config.ConnectionTimeoutSeconds
+
+                        let userId =
+                            if String.IsNullOrWhiteSpace(config.UserId) then
+                                Environment.GetEnvironmentVariable("ORACLE_USER_ID")
+                            else
+                                config.UserId
 
                         let password =
                             if String.IsNullOrWhiteSpace(config.Password) then
@@ -56,7 +66,12 @@ type OracleConnectivityHealthCheck(options: IOptions<OracleOptions>, logger: ILo
                         let connectionString = builder.ConnectionString
                         use conn = new OracleConnection(connectionString)
                         do! conn.OpenAsync(ct)
-                        let! _ = conn.ExecuteScalarAsync<int>(CommandDefinition("SELECT 1 FROM DUAL", cancellationToken = ct))
+
+                        let! _ =
+                            conn.ExecuteScalarAsync<int>(
+                                CommandDefinition("SELECT 1 FROM DUAL", cancellationToken = ct)
+                            )
+
                         sw.Stop()
 
                         logger.LogInformation(
@@ -68,6 +83,7 @@ type OracleConnectivityHealthCheck(options: IOptions<OracleOptions>, logger: ILo
 
                         let data = Dictionary<string, obj>()
                         data["elapsedMs"] <- box sw.ElapsedMilliseconds
+
                         return HealthCheckResult.Healthy("Oracle healthy.", data)
                     with ex ->
                         sw.Stop()

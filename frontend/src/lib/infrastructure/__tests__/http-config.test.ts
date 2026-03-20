@@ -11,6 +11,7 @@ describe('HTTP config', () => {
   });
 
   it('falls back to /api when PUBLIC_API_URL is unset', async () => {
+    vi.stubEnv('PUBLIC_API_URL', '');
     const { HTTP_CONFIG } = await loadHttpConfigModule();
 
     expect(HTTP_CONFIG).toMatchObject({
@@ -35,6 +36,27 @@ describe('HTTP config', () => {
     const { HTTP_CONFIG } = await loadHttpConfigModule();
 
     expect(HTTP_CONFIG.baseUrl).toBe('https://api.example.com/api');
+  });
+
+  it('normalizes host-only PUBLIC_API_URL to include /api path', async () => {
+    vi.stubEnv('PUBLIC_API_URL', 'https://api.example.com/');
+    const { HTTP_CONFIG } = await loadHttpConfigModule();
+
+    expect(HTTP_CONFIG.baseUrl).toBe('https://api.example.com/api');
+  });
+
+  it('normalizes only pathname and preserves query/hash segments', async () => {
+    vi.stubEnv('PUBLIC_API_URL', 'https://api.example.com/api/?tenant=alpha#status');
+    const { HTTP_CONFIG } = await loadHttpConfigModule();
+
+    expect(HTTP_CONFIG.baseUrl).toBe('https://api.example.com/api?tenant=alpha#status');
+  });
+
+  it('trims trailing slashes from relative PUBLIC_API_URL values', async () => {
+    vi.stubEnv('PUBLIC_API_URL', '/api/');
+    const { HTTP_CONFIG } = await loadHttpConfigModule();
+
+    expect(HTTP_CONFIG.baseUrl).toBe('/api');
   });
 
   it('falls back to /api when PUBLIC_API_URL is blank', async () => {

@@ -11,7 +11,8 @@ open Microsoft.IdentityModel.Tokens
 
 type PasswordHasher() =
     interface IPasswordHasher with
-        member _.Verify(plainText, hashed) = BCrypt.Net.BCrypt.Verify(plainText, hashed)
+        member _.Verify(plainText, hashed) =
+            BCrypt.Net.BCrypt.Verify(plainText, hashed)
 
 type JwtTokenProvider(options: IOptions<JwtOptions>) =
     let config = options.Value
@@ -32,8 +33,10 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
 
     let resolveAccessScopes (tenantId: string) =
         let configuredScopes =
-            if not (obj.ReferenceEquals(config.TenantAccessScopes, null))
-               && config.TenantAccessScopes.ContainsKey(tenantId) then
+            if
+                not (obj.ReferenceEquals(config.TenantAccessScopes, null))
+                && config.TenantAccessScopes.ContainsKey(tenantId)
+            then
                 config.TenantAccessScopes.[tenantId] |> Seq.ofArray
             elif not (obj.ReferenceEquals(config.DefaultAccessScopes, null)) then
                 config.DefaultAccessScopes |> Seq.ofArray
@@ -60,8 +63,27 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
                 Error(InfrastructureError "JWT signing key is not configured.")
             else
                 let now = DateTimeOffset.UtcNow
-                let accessExpiry = now.AddMinutes(float (if config.AccessTokenMinutes <= 0 then 15 else config.AccessTokenMinutes))
-                let refreshExpiry = now.AddDays(float (if config.RefreshTokenDays <= 0 then 7 else config.RefreshTokenDays))
+
+                let accessExpiry =
+                    now.AddMinutes(
+                        float (
+                            if config.AccessTokenMinutes <= 0 then
+                                15
+                            else
+                                config.AccessTokenMinutes
+                        )
+                    )
+
+                let refreshExpiry =
+                    now.AddDays(
+                        float (
+                            if config.RefreshTokenDays <= 0 then
+                                7
+                            else
+                                config.RefreshTokenDays
+                        )
+                    )
+
                 let sessionId = Guid.NewGuid().ToString("N")
                 let userId = UserId.value user.Id |> string
                 let tenantId = TenantId.value tenant.TenantId
@@ -86,11 +108,10 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
                 let accessToken = createToken accessClaims accessExpiry.UtcDateTime
                 let refreshToken = createToken refreshClaims refreshExpiry.UtcDateTime
 
-                Ok {
-                    AccessToken = accessToken
-                    RefreshToken = refreshToken
-                    ExpiresAt = accessExpiry
-                }
+                Ok
+                    { AccessToken = accessToken
+                      RefreshToken = refreshToken
+                      ExpiresAt = accessExpiry }
 
         member _.ValidateRefreshToken(refreshToken) =
             if String.IsNullOrWhiteSpace(config.SigningKey) then
@@ -126,12 +147,10 @@ type JwtTokenProvider(options: IOptions<JwtOptions>) =
                     else
                         match Guid.TryParse(sub.Value) with
                         | true, parsedUserId ->
-                            Ok {
-                                UserId = UserId parsedUserId
-                                TenantId = TenantId tenant.Value
-                                SessionId = sid.Value
-                            }
-                        | _ ->
-                            Error(Unauthorized "Invalid subject claim: unable to parse user id.")
+                            Ok
+                                { UserId = UserId parsedUserId
+                                  TenantId = TenantId tenant.Value
+                                  SessionId = sid.Value }
+                        | _ -> Error(Unauthorized "Invalid subject claim: unable to parse user id.")
                 with _ ->
                     Error(Unauthorized "Refresh token is invalid.")

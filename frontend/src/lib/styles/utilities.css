@@ -5,9 +5,9 @@
 }
 
 .surface-card {
-  background: hsl(var(--surface));
+  background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius) - 2px);
   box-shadow: var(--shadow-sm);
 }
 
@@ -29,11 +29,11 @@
 }
 
 .surface-title {
-  color: hsl(var(--text));
+  color: hsl(var(--foreground));
 }
 
 .surface-subtle {
-  color: hsl(var(--text-muted));
+  color: hsl(var(--muted-foreground));
 }
 
 .ui-shell {
@@ -43,16 +43,16 @@
 
 .state-card {
   padding: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius) - 2px);
   border: 1px solid hsl(var(--border));
-  background: hsl(var(--surface));
+  background: hsl(var(--card));
 }
 
 .state-alert {
   padding: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius) - 2px);
   border: 1px solid hsl(var(--border));
-  background: hsl(var(--surface-muted));
+  background: hsl(var(--muted));
 }
 
 .motion-reduce * {

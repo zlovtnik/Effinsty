@@ -50,22 +50,22 @@
 
 <style>
   .ui-alert {
-    border-radius: var(--radius-md);
+    border-radius: calc(var(--radius) - 2px);
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface-muted));
-    color: hsl(var(--text));
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
     padding: 0.9rem;
     display: grid;
     gap: 0.5rem;
   }
 
   .ui-alert--danger {
-    border-color: hsl(var(--danger) / 0.3);
-    background: hsl(var(--danger) / 0.08);
+    border-color: hsl(var(--destructive) / 0.3);
+    background: hsl(var(--destructive) / 0.08);
   }
 
   .ui-alert--info {
-    color: hsl(var(--text) / 0.88);
+    color: hsl(var(--foreground) / 0.88);
   }
 
   h3 {
@@ -86,12 +86,12 @@
 
   .ui-alert__correlation {
     font-size: 0.85rem;
-    color: hsl(var(--text) / 0.85);
+    color: hsl(var(--foreground) / 0.85);
   }
 
   code {
     font-family: var(--font-family-mono);
-    background: hsl(var(--surface));
+    background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     border-radius: 5px;
     padding: 0.08rem 0.35rem;

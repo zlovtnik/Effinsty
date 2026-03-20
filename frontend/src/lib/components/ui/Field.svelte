@@ -94,7 +94,7 @@
   }
 
   .ui-field__required {
-    color: hsl(var(--danger));
+    color: hsl(var(--destructive));
   }
 
   .ui-field__control :global(input),
@@ -102,11 +102,11 @@
   .ui-field__control :global(textarea) {
     min-height: 44px;
     width: 100%;
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     border: 1px solid hsl(var(--border));
     padding: 0.45rem 0.55rem;
-    background: hsl(var(--surface));
-    color: hsl(var(--text));
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
     font: inherit;
     transition:
       border-color var(--motion-fast) var(--motion-ease-standard),
@@ -116,26 +116,26 @@
   .is-error :global(input),
   .is-error :global(select),
   .is-error :global(textarea) {
-    border-color: hsl(var(--danger));
+    border-color: hsl(var(--destructive));
   }
 
   .ui-field__control :global(input:focus-visible),
   .ui-field__control :global(select:focus-visible),
   .ui-field__control :global(textarea:focus-visible) {
     outline: none;
-    border-color: hsl(var(--focus));
-    box-shadow: var(--focus-ring);
+    border-color: hsl(var(--ring));
+    box-shadow: var(--ring-shadow);
   }
 
   .ui-field__hint {
     margin: 0;
-    color: hsl(var(--text-muted));
+    color: hsl(var(--muted-foreground));
     font-size: 0.84rem;
   }
 
   .ui-field__error {
     margin: 0;
-    color: hsl(var(--danger));
+    color: hsl(var(--destructive));
     font-size: 0.84rem;
   }
 

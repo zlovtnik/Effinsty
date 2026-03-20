@@ -21,7 +21,6 @@ let ``metadata parser deserializes valid json object to map`` () =
     let metadata =
         RepositoryMetadata.deserializeContactMetadata "contact-123" "user-456" """{"source":"crm","segment":"vip"}"""
 
-    let expected =
-        Map.ofList [ "source", "crm"; "segment", "vip" ]
+    let expected = Map.ofList [ "source", "crm"; "segment", "vip" ]
 
     Assert.Equal<Map<string, string>>(expected, metadata)

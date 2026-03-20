@@ -30,8 +30,8 @@
 
 <style>
   :global(body) {
-    color: hsl(var(--text));
-    background: hsl(var(--bg));
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
     font-family: var(--font-family-sans);
   }
 
@@ -42,7 +42,7 @@
     background:
       radial-gradient(90rem 40rem at 8% -10%, hsl(var(--primary) / 0.12), transparent),
       radial-gradient(80rem 36rem at 95% 6%, hsl(var(--accent) / 0.09), transparent),
-      hsl(var(--bg));
+      hsl(var(--background));
   }
 
   @media (min-width: 1024px) {

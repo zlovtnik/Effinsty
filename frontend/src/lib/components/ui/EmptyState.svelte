@@ -32,8 +32,8 @@
 <style>
   .ui-empty-state {
     border: 1px dashed hsl(var(--border));
-    border-radius: var(--radius-md);
-    background: hsl(var(--surface));
+    border-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--card));
     padding: 1rem;
     display: grid;
     gap: 0.42rem;
@@ -46,7 +46,7 @@
 
   .ui-empty-state p {
     margin: 0;
-    color: hsl(var(--text-muted));
+    color: hsl(var(--muted-foreground));
   }
 
   .ui-empty-state__cta {

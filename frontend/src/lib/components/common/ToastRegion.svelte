@@ -45,10 +45,10 @@
   }
 
   .toast {
-    border-radius: var(--radius-md);
+    border-radius: calc(var(--radius) - 2px);
     border: 1px solid hsl(var(--border));
     box-shadow: var(--shadow-md);
-    background: hsl(var(--surface));
+    background: hsl(var(--card));
     display: flex;
     justify-content: space-between;
     gap: 0.85rem;
@@ -73,7 +73,7 @@
 
   .toast-correlation {
     font-size: 0.8rem;
-    color: hsl(var(--text) / 0.75);
+    color: hsl(var(--foreground) / 0.75);
   }
 
   code {
@@ -82,9 +82,9 @@
 
   .toast-dismiss {
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface-muted));
-    color: hsl(var(--text));
-    border-radius: var(--radius-sm);
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+    border-radius: calc(var(--radius) - 4px);
     padding: 0.2rem 0.55rem;
     align-self: start;
     cursor: pointer;
@@ -95,7 +95,7 @@
   }
 
   .toast-error {
-    border-left: 4px solid hsl(var(--danger));
+    border-left: 4px solid hsl(var(--destructive));
   }
 
   .toast-warning {

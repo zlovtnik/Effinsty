@@ -48,11 +48,11 @@
   .ui-input {
     width: 100%;
     min-height: 44px;
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     border: 1px solid hsl(var(--border));
     padding: 0.45rem 0.55rem;
-    background: hsl(var(--surface));
-    color: hsl(var(--text));
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
     font: inherit;
     transition:
       border-color var(--motion-fast) var(--motion-ease-standard),
@@ -61,12 +61,12 @@
 
   .ui-input:focus-visible {
     outline: none;
-    border-color: hsl(var(--focus));
-    box-shadow: var(--focus-ring);
+    border-color: hsl(var(--ring));
+    box-shadow: var(--ring-shadow);
   }
 
   .ui-input.is-error {
-    border-color: hsl(var(--danger));
+    border-color: hsl(var(--destructive));
   }
 
   .ui-input:disabled {

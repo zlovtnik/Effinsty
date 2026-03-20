@@ -1,33 +1,36 @@
 :root {
-  --bg: 210 20% 98%;
-  --surface: 0 0% 100%;
-  --surface-muted: 210 20% 96%;
-  --surface-elevated: 0 0% 100%;
-  --overlay: 222 47% 11%;
-  --text: 222 47% 11%;
-  --text-muted: 215 16% 42%;
-
-  --primary: 214 88% 47%;
+  /* Brand and semantic colors */
+  --primary: 352 77% 49%;
   --primary-foreground: 0 0% 100%;
-  --accent: 163 78% 36%;
-  --accent-foreground: 0 0% 100%;
-
-  --success: 142 70% 36%;
+  --secondary: 208 100% 32%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 52 100% 65%;
+  --accent-foreground: 240 10% 3.9%;
+  --success: 142 72% 36%;
   --warning: 38 92% 50%;
-  --danger: 0 84% 60%;
-  --info: 199 89% 48%;
+  --info: 200 98% 42%;
+  --destructive: 347 70% 41%;
+  --destructive-foreground: 0 0% 100%;
 
-  --text-error: 0 78% 35%;
+  /* Surfaces and neutrals */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 352 77% 49%;
 
-  --border: 214 28% 88%;
-  --focus: 214 88% 47%;
+  /* Supporting primitives */
+  --overlay: 240 10% 3.9%;
+  --overlay-muted: hsl(var(--overlay) / 0.35);
 
   --font-family-sans: Manrope, "Avenir Next", "Segoe UI", sans-serif;
   --font-family-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius: 0.75rem;
 
   --space-0: 0;
   --space-0-5: 0.25rem;
@@ -48,14 +51,13 @@
 
   --shadow-sm: var(--shadow-sm-token);
   --shadow-md: var(--shadow-md-token);
-
-  --shadow-sm-token: 0 1px 2px hsl(222 47% 11% / 0.08);
-  --shadow-md-token: 0 8px 24px hsl(222 47% 11% / 0.1);
+  --shadow-sm-token: 0 1px 2px hsl(var(--foreground) / 0.08);
+  --shadow-md-token: 0 8px 24px hsl(var(--foreground) / 0.1);
 
   --ring-width: 2px;
   --ring-offset: 2px;
-  --focus-ring: 0 0 0 var(--ring-offset) hsl(var(--primary) / 0.2);
-  --focus-outline: 2px solid hsl(var(--focus));
+  --ring-shadow: 0 0 0 var(--ring-offset) hsl(var(--ring) / 0.25);
+  --ring-outline: 2px solid hsl(var(--ring));
 
   --motion-fast: 120ms;
   --motion-base: 180ms;
@@ -64,5 +66,57 @@
 
   --container-width: 1200px;
   --control-min-height: 44px;
-  --overlay-muted: hsl(222 47% 11% / 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --success: 142 62% 52%;
+    --warning: 38 100% 64%;
+    --info: 200 100% 62%;
+    --destructive: 347 83% 62%;
+    --destructive-foreground: 240 10% 3.9%;
+    --overlay: 240 10% 3.9%;
+    --overlay-muted: hsl(var(--overlay) / 0.55);
+  }
+}
+
+:root.light,
+.light {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --overlay: 240 10% 3.9%;
+  --overlay-muted: hsl(var(--overlay) / 0.35);
+}
+
+:root.dark,
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --success: 142 62% 52%;
+  --warning: 38 100% 64%;
+  --info: 200 100% 62%;
+  --destructive: 347 83% 62%;
+  --destructive-foreground: 240 10% 3.9%;
+  --overlay: 240 10% 3.9%;
+  --overlay-muted: hsl(var(--overlay) / 0.55);
 }

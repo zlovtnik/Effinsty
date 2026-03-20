@@ -229,8 +229,8 @@
 
   .ui-modal {
     width: min(100%, 32rem);
-    background: hsl(var(--surface));
-    border-radius: var(--radius-lg);
+    background: hsl(var(--card));
+    border-radius: var(--radius);
     border: 1px solid hsl(var(--border));
     box-shadow: var(--shadow-md);
     display: grid;
@@ -247,7 +247,7 @@
 
   .ui-modal__description {
     margin: 0;
-    color: hsl(var(--text-muted));
+    color: hsl(var(--muted-foreground));
   }
 
   .ui-modal__content {
@@ -263,7 +263,7 @@
 
   .ui-modal__header :global(button:focus-visible),
   .ui-modal__actions :global(button:focus-visible) {
-    outline: 2px solid hsl(var(--focus));
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
 

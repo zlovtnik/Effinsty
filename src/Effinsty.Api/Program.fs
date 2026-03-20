@@ -1,6 +1,7 @@
 namespace Effinsty.Api
 
 open System
+open System.Collections.Generic
 open System.Text
 open System.Text.Json
 open Effinsty.Api.Context
@@ -21,9 +22,31 @@ open Microsoft.IdentityModel.Tokens
 open Oracle.ManagedDataAccess.Client
 
 module Program =
+    let private corsPolicyName = "EffinstyCorsPolicy"
+
+    let private defaultDevelopmentCorsOrigins =
+        [|
+            "http://localhost:5173"
+            "http://127.0.0.1:5173"
+            "http://localhost:4173"
+            "http://127.0.0.1:4173"
+        |]
+
     let private firstNonEmpty (values: string seq) =
         values
         |> Seq.tryFind (fun value -> not (String.IsNullOrWhiteSpace(value)))
+
+    let private splitOrigins (value: string) =
+        value.Split([| ','; ';' |], StringSplitOptions.RemoveEmptyEntries)
+        |> Seq.map (fun origin -> origin.Trim())
+        |> Seq.filter (fun origin -> not (String.IsNullOrWhiteSpace(origin)))
+
+    let private distinctOrigins (origins: string seq) =
+        let seen = HashSet<string>(StringComparer.OrdinalIgnoreCase)
+
+        origins
+        |> Seq.filter (fun origin -> seen.Add(origin))
+        |> Seq.toArray
 
     let private resolveConfigValue (configuration: IConfiguration) (configKeys: string list) (envVars: string list) =
         let fromConfig =
@@ -47,6 +70,37 @@ module Program =
                     None
                 else
                     Some value)
+
+    let private resolveCorsOrigins (configuration: IConfiguration) (isDevelopment: bool) =
+        let sectionValues =
+            configuration.GetSection("Cors:AllowedOrigins").GetChildren()
+            |> Seq.choose (fun child ->
+                if String.IsNullOrWhiteSpace(child.Value) then
+                    None
+                else
+                    Some child.Value)
+            |> Seq.collect splitOrigins
+
+        let scalarValues =
+            [ configuration.GetValue<string>("Cors:AllowedOrigins")
+              Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS") ]
+            |> Seq.choose (fun value ->
+                if String.IsNullOrWhiteSpace(value) then
+                    None
+                else
+                    Some value)
+            |> Seq.collect splitOrigins
+
+        let configuredOrigins =
+            Seq.append sectionValues scalarValues
+            |> distinctOrigins
+
+        if configuredOrigins.Length > 0 then
+            configuredOrigins
+        elif isDevelopment then
+            defaultDevelopmentCorsOrigins
+        else
+            [||]
 
     let private isHealthPath (path: PathString) =
         path.StartsWithSegments(PathString("/api/health"), StringComparison.OrdinalIgnoreCase)
@@ -92,7 +146,7 @@ module Program =
 
     let private tenantResolutionMiddleware (next: RequestDelegate) (ctx: HttpContext) =
         task {
-            if isHealthPath ctx.Request.Path then
+            if HttpMethods.IsOptions(ctx.Request.Method) || isHealthPath ctx.Request.Path then
                 return! next.Invoke(ctx)
             else
                 let resolver = ctx.RequestServices.GetRequiredService<ITenantResolver>()
@@ -182,6 +236,9 @@ module Program =
     [<EntryPoint>]
     let main args =
         let builder = WebApplication.CreateBuilder(args)
+        let isDevelopment = builder.Environment.IsDevelopment()
+        let corsOrigins = resolveCorsOrigins builder.Configuration isDevelopment
+        let corsEnabled = corsOrigins.Length > 0
 
         if builder.Environment.IsProduction() then
             builder.Logging.ClearProviders() |> ignore
@@ -238,6 +295,22 @@ module Program =
         builder.Services.AddGiraffe() |> ignore
         builder.Services.AddEffinstyInfrastructure(builder.Configuration) |> ignore
 
+        if corsEnabled then
+            builder.Services
+                .AddCors(fun options ->
+                    options.AddPolicy(
+                        corsPolicyName,
+                        fun policy ->
+                            policy
+                                .WithOrigins(corsOrigins)
+                                .AllowAnyHeader()
+                                .AllowAnyMethod()
+                                .AllowCredentials()
+                                .WithExposedHeaders("X-Correlation-ID")
+                            |> ignore
+                    ))
+            |> ignore
+
         let jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
 
         if obj.ReferenceEquals(jwtOptions, null) then
@@ -267,16 +340,23 @@ module Program =
         builder.Services.AddAuthorization() |> ignore
 
         let app = builder.Build()
+        let startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Effinsty.Api.Startup")
 
         if usedLegacyWalletEnv then
-            let logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Effinsty.Api.Startup")
-
-            logger.LogWarning(
+            startupLogger.LogWarning(
                 "Environment variable ORACLE_WALLET_LOCATION is deprecated and will be removed in a future release. Use ORACLE_WALLET_PATH instead."
             )
 
         app.Use(fun next -> RequestDelegate(fun ctx -> errorHandlingMiddleware next ctx)) |> ignore
         app.Use(fun next -> RequestDelegate(fun ctx -> setCorrelationIdMiddleware next ctx)) |> ignore
+
+        if corsEnabled then
+            app.UseCors(corsPolicyName) |> ignore
+        elif not isDevelopment then
+            startupLogger.LogWarning(
+                "CORS is disabled because no allowed origins were configured. Set Cors:AllowedOrigins or CORS_ALLOWED_ORIGINS."
+            )
+
         app.Use(fun next -> RequestDelegate(fun ctx -> tenantResolutionMiddleware next ctx)) |> ignore
 
         app.UseAuthentication() |> ignore

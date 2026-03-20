@@ -24,5 +24,6 @@ SvelteKit frontend for Effinsty, aligned to `frontend.md` v1.1 and FE backlog st
 ## Operational Docs
 
 - [API base URL configuration](./docs/api-base-url.md)
+- [Effinsty Core design tokens](./docs/design-tokens-effinsty-core.md)
 - [Security hardening](./docs/security-hardening.md)
 - [Release checklist and runbook](./docs/release-runbook.md)

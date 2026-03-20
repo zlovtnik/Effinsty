@@ -29,10 +29,10 @@
 
 <style>
   .ui-toast {
-    border-radius: var(--radius-md);
+    border-radius: calc(var(--radius) - 2px);
     border: 1px solid hsl(var(--border));
     box-shadow: var(--shadow-md);
-    background: hsl(var(--surface));
+    background: hsl(var(--card));
     display: flex;
     justify-content: space-between;
     align-items: start;
@@ -60,7 +60,7 @@
   }
 
   .ui-toast--error {
-    border-left: 4px solid hsl(var(--danger));
+    border-left: 4px solid hsl(var(--destructive));
   }
 
   .ui-toast--warning {

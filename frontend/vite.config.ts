@@ -3,6 +3,8 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  envDir: fileURLToPath(new URL('..', import.meta.url)),
+  envPrefix: ['PUBLIC_', 'VITE_'],
   plugins: [sveltekit()],
   resolve: {
     conditions: ['browser'],

@@ -145,9 +145,9 @@
 
   .dialog {
     width: min(92vw, 29rem);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface));
+    background: hsl(var(--card));
     box-shadow: var(--shadow-md);
     display: grid;
     gap: 0.8rem;
@@ -161,7 +161,7 @@
 
   .dialog p {
     margin: 0;
-    color: hsl(var(--text) / 0.9);
+    color: hsl(var(--foreground) / 0.9);
   }
 
   .actions {
@@ -173,14 +173,14 @@
   button {
     cursor: pointer;
     font: inherit;
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius) - 4px);
     padding: 0.4rem 0.7rem;
   }
 
   .secondary {
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface-muted));
-    color: hsl(var(--text));
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
   }
 
   .primary {
@@ -191,7 +191,7 @@
 
   .danger {
     border: 1px solid transparent;
-    background: hsl(var(--danger));
-    color: white;
+    background: hsl(var(--destructive));
+    color: hsl(var(--destructive-foreground));
   }
 </style>
